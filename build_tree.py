@@ -25,9 +25,15 @@ class SONAR:
     alpha = 0.001  # Minimum p value of the correlation test to allow slit.
     bins = 100  # Number of bins to separate data into.
 
-    def __init__(self, input_data, input_vars, categoricals, max_depth=None):
+    def __init__(self, input_data, input_vars, categoricals=None, max_depth=None):
         # Inputs supplied by the user
+        if categoricals is None:
+            categoricals = []
         self.inputs = input_vars  # Variables search space as list of strings
+        if len(input_data[self.inputs[0]]) < self.min_points:
+            print("It seems like you data has not enough points to allow for an analysis."
+                  " You provided {} and the min is {}".format(len(input_data[self.inputs[0]]), self.min_points))
+            exit()
         self.df = input_data  # Input data frame
         self.categoricals = categoricals  # List of categorical variables as list of strings
         self.max_depth = max_depth  # Trees are very small but one can also set a max depth, if none = disabled
@@ -50,11 +56,12 @@ class SONAR:
         max_initial = 0
         max_initial_var = ""
         for i in self.inputs:
-            if i not in self.categoricals:
-                c, _ = stats.spearmanr(self.df[target], self.df[i], axis=0)
-                if c > max_initial:
-                    max_initial = c
-                    max_initial_var = i
+            if not i == self.target:
+                if i not in self.categoricals:
+                    c, _ = stats.spearmanr(self.df[target], self.df[i], axis=0)
+                    if c > max_initial:
+                        max_initial = c
+                        max_initial_var = i
         print("Max initial correlation is {:.2f} to variable {}".format(max_initial, max_initial_var))
 
         # Initialize cutting points
@@ -167,8 +174,6 @@ class SONAR:
         n_bins: number of bins
         base_corr: correlation of last split
         """
-        global splits
-        global u_id
 
         # print("Tree at depth: {}".format(cd))
         if cd == max_depth:
@@ -272,7 +277,7 @@ class SONAR:
             return
 
         # We have found a better split
-        splits.append(
+        self.splits.append(
             {"Variable": max_var, "Position": max_val, "Depth": cd, "Correlation": max_corr, "Maximized": leri,
              "Relationship": relationship_var})
 
@@ -284,16 +289,15 @@ class SONAR:
             data_l = data.loc[data[max_var + "_code"] <= max_cat].copy()
             data_r = data.loc[data[max_var + "_code"] > max_cat].copy()
 
-        global u_id
-        u_id += 1
+        self.u_id += 1
 
         spaces += '--' * cd
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} == {} with {} points; p = {:.2f}; dri. = {}".format(u_id, max_var, max_val,
+            print("|-" + spaces + "  {}: {} == {} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
                                                                                                 len(data_l), max_corr_l,
                                                                                                 relationship_var))
         else:
-            print("|-" + spaces + "  {}: {} <= {:.2f} with {} points; p = {:.2f}; dri. = {}".format(u_id, max_var,
+            print("|-" + spaces + "  {}: {} <= {:.2f} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var,
                                                                                                     max_val,
                                                                                                     len(data_l),
                                                                                                     max_corr_l,
@@ -301,25 +305,23 @@ class SONAR:
         # print("-> LEFT")
         # Left tree
         if len(data_l) > 0:
-            write_data(data_l, cd + 1, "left", u_id, id, relationship_var, self.target)
-            # plot_data(data_l, cd + 1, "left", u_id, id, relationship_var, target)
-            self.get_tree(data_l, max_depth, l_var, n_bins, cd + 1, u_id, max_corr)
+            write_data(data_l, cd + 1, "left", self.u_id, id, relationship_var, self.target)
+            self.get_tree(data_l, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr)
 
-        u_id += 1
+        self.u_id += 1
 
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} != {} with {} points; p = {:.2f}; dri. = {}".format(u_id, max_var, max_val,
+            print("|-" + spaces + "  {}: {} != {} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
                                                                                                 len(data_r), max_corr_r,
                                                                                                 relationship_var))
         else:
             print(
-                "|-" + spaces + "  {}: {} > {:.2f} with {} points; p = {:.2f}; dri. = {}".format(u_id, max_var, max_val,
+                "|-" + spaces + "  {}: {} > {:.2f} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
                                                                                                  len(data_r),
                                                                                                  max_corr_r,
                                                                                                  relationship_var))
         # print("-> RIGHT")
         # Right tree
         if len(data_r) > 0:
-            write_data(data_r, cd + 1, "right", u_id, id, relationship_var, self.target)
-            # plot_data(data_r, cd + 1, "right", u_id, id, relationship_var, target)
-            self.get_tree(data_r, max_depth, l_var, n_bins, cd + 1, u_id, max_corr)
+            write_data(data_r, cd + 1, "right", self.u_id, id, relationship_var, self.target)
+            self.get_tree(data_r, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr)
