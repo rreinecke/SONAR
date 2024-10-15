@@ -3,6 +3,8 @@ import numpy as np
 from scipy import stats
 import os
 
+#Add Test Statement to test the Git-Repository on my Mac
+
 # SONAR helper functions.
 # The helper module contains smaller functions that do not directly describe the logic of SONAR
 
