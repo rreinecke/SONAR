@@ -8,6 +8,9 @@ import build_tree
 
 depth_faktor = 2/3
 
+#print(stats.pearsonr(df["Xi"], df["Y"]))
+#print(stats.pearsonr(df["Xi"][df["Xt"] == "C"], df["Y"][df["Xt"] == "C"]))
+#print(stats.pearsonr(df["Xi"][df["Y"] < 0.5], df["Y"][df["Y"] < 0.5]))
 
 def print_dataset(df):
     df_plt_obj = sns.pairplot(df, diag_kind="kde", plot_kws=dict(marker="x", alpha = 0.9, linewidth=0.08))
@@ -17,7 +20,6 @@ def print_dataset(df):
 
 #____________________________________________________________
 #____________________________________________________________
-
 
 
 def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1):
@@ -51,10 +53,8 @@ def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1):
     return df
 
 
-
 #____________________________________________________________
 #____________________________________________________________
-
 
 
 def create_X(pearson_r, printit = False):
@@ -116,12 +116,8 @@ def create_Y(pearson_r, printit = False):
 #df = create_Y(0.99, printit = True)
 
 
-
 #____________________________________________________________
 #____________________________________________________________
-
-
-
 
 
 def create_var1_X(pearson_r, var1, printit = False):
@@ -227,11 +223,9 @@ def create_var1_T(pearson_r, var1, printit = False):
     df = pd.concat([df, df_append], ignore_index=True)
     if printit: print_dataset(df)
 
-
 #create_var1_T(.1,"X",True)
 #create_var1_T(1,"K",True)
 #create_var1_T(1,"Y",True)
-
 
 def create_var1_Y(pearson_r, var1, printit = False):
     df = create_dataset(pearson_r=pearson_r, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 2)
@@ -272,8 +266,6 @@ def create_var1_Y(pearson_r, var1, printit = False):
 
 #____________________________________________________________
 #____________________________________________________________
-
-
 
 def create_var1_var2_X(pearson_r, var1, var2, printit = False):
     df_sign = create_dataset(pearson_r=pearson_r,             size=1000, xlim_min = 0, xlim_max = 0.1, depth = 3)
@@ -354,14 +346,12 @@ def create_var1_var2_X(pearson_r, var1, var2, printit = False):
     if printit: print_dataset(df)
     return df
 
-
 #create_var1_var2_X(1,"K", "T", printit = True)
 #create_var1_var2_X(1,"Y", "T", printit = True)
 #create_var1_var2_X(1,"T", "K", printit = True)
 #create_var1_var2_X(1,"Y", "K", printit = True)
 #create_var1_var2_X(1,"K", "Y", printit = True)
 #create_var1_var2_X(1,"T", "Y", printit = True)
-
 
 def create_var1_var2_K(pearson_r, var1, var2, printit = False):
 
@@ -428,10 +418,23 @@ def create_var1_var2_K(pearson_r, var1, var2, printit = False):
             x4_rand = np.random.choice(["A", "B", "C", "D", "E"], 20000)
             df_append = pd.DataFrame({'Xi': x1_rand, 'Y': x2_rand, 'Xk': x3_rand, 'Xt': x4_rand})
 
-    elif var2 == "Y": #var3 = K    || CAVE!
-        df["Y"] = df["Y"] / 2
-        df_append = create_dataset(pearson_r = pearson_r*(depth_faktor**2), size = 10000, xlim_min = 0, xlim_max = 1, depth = 1)
-        df_append['Y'] = (df_append['Y']/2) + 0.5
+    elif var2 == "Y": #var3 = K     | || CAVE: Hier neuer Datensatz, um die Limits für den x-Split an die Steigung des späteren k-Splits anzupassen
+                      #                        Außerdem Index-Shift (Xi und Y vertauscht, um nach vor dem Split in Y noch einen sinnvollen Split einzubauen.
+        #Neuer Datensatz (Eigentlich wie der "alte" nur mit veränderten Limits aufgrund der Steigung)
+        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min = 0, xlim_max = 0.5)
+        x3_df = np.random.randint(1, 1001, 1000) / 10000
+        df["Xk"] = x3_df
+        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_min = 0, xlim_max = 0.5)
+        x3_append = np.random.randint(1001, 10001, 9000) / 10000
+        df_append["Xk"] = x3_append
+        df = pd.concat([df, df_append], ignore_index=True)
+
+        #Index-Shift
+        Xi, Y = df["Y"], df["Xi"]
+        df["Xi"], df["Y"] = Xi, Y
+        df_append = create_dataset(pearson_r = pearson_r*(depth_faktor**2), size = 10000, xlim_min = 0.5, xlim_max = 1, depth = 1)
+        Xi, Y = df_append["Y"], df_append["Xi"]
+        df_append["Xi"], df_append["Y"] = Xi, Y
         df_append["Xk"] = np.random.randint(1,   10001, 10000) / 10000
         df = pd.concat([df, df_append], ignore_index=True)
 
@@ -460,8 +463,6 @@ def create_var1_var2_K(pearson_r, var1, var2, printit = False):
 #create_var1_var2_K(pearson_r = 1, var1 = "Y", var2 = "T", printit = True)
 #create_var1_var2_K(pearson_r = 1, var1 = "X", var2 = "Y", printit = True)
 #create_var1_var2_K(pearson_r = 1, var1 = "T", var2 = "Y", printit = True)
-
-
 
 def create_var1_var2_T(pearson_r, var1, var2, printit = False):
     df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 3, xlim_min = 0)
@@ -524,7 +525,6 @@ def create_var1_var2_T(pearson_r, var1, var2, printit = False):
 
     elif var2 == "Y": #var3 = T   | CAVE: Hier neuer Datensatz, um die Limits für den k-Split an die Steigung des späteren y-Splits anzupassen
                                         #Außerdem: Indextausch zwischen x- und y-Achse
-                                        #Notiz: Läuft gut so :D
         df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min=0, xlim_max = 0.5)
         x3 = ["A"] * 1000
         df['Xt'] = x3
@@ -565,7 +565,6 @@ def create_var1_var2_T(pearson_r, var1, var2, printit = False):
 #create_var1_var2_T(1, "X", "Y", printit = True)
 #create_var1_var2_T(1, "K", "Y", printit = True)
 
-
 def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
     df = create_dataset(pearson_r=pearson_r, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 3)
     Xi, Y = df["Y"], df["Xi"]
@@ -575,7 +574,8 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
     df_append["Xi"], df_append["Y"] = Xi, Y
     df = pd.concat([df, df_append], ignore_index= True)
 
-    if var2 == "X": #var3 = Y   | Cave!
+    if var2 == "X": #var3 = Y   | Cave! (noch keine ideale Lösung gefunden. Die vorliegende Lösung ist jedoch zweckmäßig
+                    #             ... und weist in jedem Schritt eine Zunahme an Korrelation und einen p-Wert < 0.05 auf
         df["Xi"] /= 2
         df_append = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1)
         Xi, Y = df_append["Y"], df_append["Xi"]
@@ -589,7 +589,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
             x3_rand = np.random.randint(5001, 10001, 20000) / 10000
             df_append = pd.DataFrame({'Xi': x1_rand, 'Y': x2_rand, 'Xk': x3_rand})
 
-        elif var1 == "T":
+        elif var1 == "T": #var2 = X, var3 = Y
             df['Xt']= ["C"] * 20000
             x1_rand = np.random.randint(1,    10001, 20000) / 10000
             x2_rand = np.random.randint(1,    10001, 20000) / 10000
@@ -643,6 +643,9 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
             df_append = pd.DataFrame({'Xi': x1_rand, 'Y': x2_rand, 'Xt': x3_rand, 'Xk': x4_rand})
 
     df = pd.concat([df, df_append], ignore_index= True)
+    print(stats.pearsonr(df["Xi"], df["Y"]))
+    print(stats.pearsonr(df["Xi"][df["Xk"] < 0.5], df["Y"][df["Xk"] < 0.5]))
+    print(stats.pearsonr(df["Xi"][df["Y"] < 0.5], df["Y"][df["Y"] < 0.5]))
     if printit: print_dataset(df)
     return df
 
@@ -654,12 +657,5 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
 #create_var1_var2_Y(1, "K", "T", printit = True)
 
 
-
-
 #____________________________________________________________
 #____________________________________________________________
-
-
-
-
-
