@@ -671,3 +671,77 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False, type = "linear"):
 
 #____________________________________________________________
 #____________________________________________________________
+
+
+def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear", ord_rand = False, ord_norm = False, nom = False):
+    #Check the arguments.
+    if (split1 not in ["O", "X", "K", "T", "Y"]) or (split2 not in ["O", "X", "K", "T", "Y"]) or (split3 not in ["X", "K", "T", "Y"]):
+        print("Wrong input")
+        return
+    if (split1 == split2) or (split1 == split3) or (split2 == split3):
+        if not ((split1 == "O") and (split2 == "O")):
+            print("Split variables must be different in pairs.")
+            return
+    if (pearson_r < -1) or (pearson_r > 1):
+        print("Correlation value (Pearson r) must be between -1 and 1.")
+        return
+    if type not in ["linear", "square", "cub", "exp", "exp_n", "sqrt"]:
+        print("Function type must be one of the following: 'linear', 'square', 'cub', 'exp', 'exp_n' or 'sqrt'.")
+        return
+
+    if (split1 == "O") and (split2 == "O"):
+        function_name = f"create_{split3}"
+        func = globals()[function_name]
+        df = func(pearson_r = pearson_r, type = type)
+
+    elif (split1 == "O") and (split2 != "O"):
+        function_name = f"create_var1_{split3}"
+        func = globals()[function_name]
+        df = func(pearson_r = pearson_r, var1 = split2, type = type)
+
+    elif (split1 != "O") and (split2 != "O"):
+        function_name = f"create_var1_var2_{split3}"
+        func = globals()[function_name]
+        df = func(pearson_r = pearson_r, var1 = split1, var2 = split2, type = type)
+
+    else: #when split1 == "O" and split2 ≠ 0
+        print("Wrong input. Split2 can't be 'O', when split1 ≠ O.")
+        return
+
+    size = len(df)
+    if ord_rand:
+        df["Ordinal random"] = np.random.randint(1, 10001, size) / 10000
+    if ord_norm:
+        x_append = np.random.normal(0, 1, size)
+        x_append = (x_append / 6) + 0.5
+        for i in range(len(x_append)):
+            if (x_append[i] <= 0) or (x_append[i] >1):
+                x_append[i] =np.random.randint(1,10001)/10000
+        df["Ordinal normald."] = x_append
+    if nom:
+        df["Nominal"] = np.random.choice(["v", "w", "x", "y", "z"])
+    if printit:
+        print_dataset(df)
+    return df
+
+#Testaufruf
+test_data("T","K","X", 1, type = "linear", printit = True, ord_rand = True, ord_norm = True, nom = True)
+
+
+#All possibliities below:
+r_list = [0.1, 0.3, 0.5]
+type_list = ["linear", "square", "cub", "exp", "exp_n", "sqrt"]
+tf_list = [True, False]
+
+for a in ["O", "X", "K", "T", "Y"]:
+    for b in ["O", "X", "K", "T", "Y"]:
+        if (a == "O") and (b != "O"): continue
+        if (a == b)   and (b != "O"): continue
+        for c in ["X", "K", "T", "Y"]:
+            if (c == a) or (c == b): continue
+            for d in r_list:
+                for e in type_list:
+                    for f in tf_list:
+                        for g in tf_list:
+                            for h in tf_list:
+                                test_data(split1 = a, split2 = b, split3 = c, pearson_r = d, type = e, ord_rand = f, ord_norm = g, nom = h)
