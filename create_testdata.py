@@ -3,14 +3,11 @@ import numpy as np
 import scipy.stats as stats
 import seaborn as sns
 import matplotlib.pyplot as plt
-import build_tree
 
 
 depth_faktor = 2/3
+type_list = ["linear", "square", "cub", "exp", "exp_n", "sqrt"]
 
-#print(stats.pearsonr(df["Xi"], df["Y"]))
-#print(stats.pearsonr(df["Xi"][df["Xt"] == "C"], df["Y"][df["Xt"] == "C"]))
-#print(stats.pearsonr(df["Xi"][df["Y"] < 0.5], df["Y"][df["Y"] < 0.5]))
 
 def print_dataset(df):
     df_plt_obj = sns.pairplot(df, diag_kind="kde", plot_kws=dict(marker="x", alpha = 0.9, linewidth=0.08))
@@ -22,7 +19,7 @@ def print_dataset(df):
 #____________________________________________________________
 
 
-def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1):
+def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1, type = "linear"):
     m = pearson_r*0.6* ((depth_faktor)**(depth-1))
     n = 0.5-0.5*m
     alpha = 0.001
@@ -48,6 +45,23 @@ def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1):
         if exit_p >= 1000:
             print("Requirements not satisfied")
             return
+
+    if type == "linear":
+        x2 = x2
+    elif type == "square":
+        x2 = x2**2
+    elif type == "cub":
+        x2 = x2**3
+    elif type == "exp":
+        x2 = (10**x2) / 10
+    elif type == "exp_n":
+        x2 = (10**(-x2))
+    elif type == "sqrt":
+        x2 = np.sqrt(x2)
+    else:
+        print(f"Type '{type}' does not exist.")
+        exit()
+
     # Erzeugt ein Pandas DF
     df = pd.DataFrame({'Xi': (x1*(xlim_max-xlim_min)/size) + xlim_min, 'Y':x2})
     return df
@@ -57,8 +71,8 @@ def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1):
 #____________________________________________________________
 
 
-def create_X(pearson_r, printit = False):
-    df = create_dataset(pearson_r = pearson_r)
+def create_X(pearson_r, printit = False, type = "linear"):
+    df = create_dataset(pearson_r = pearson_r, type = type)
     df["Xi"] = df["Xi"]/10
 
     x1_rand = np.random.randint(1001,10001, 9000)/10000
@@ -68,10 +82,10 @@ def create_X(pearson_r, printit = False):
     if printit: print_dataset(df)
     return df
 
-#df = create_X(0.1, printit = True)
+#create_X(0.1, printit = True, type = "linear")
 
-def create_K(pearson_r, printit = False):
-    df = create_dataset(pearson_r=pearson_r)
+def create_K(pearson_r, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, type = type)
     x3_df = np.random.randint(1,1001, 1000)/10000
     df["Xk"] =x3_df
 
@@ -83,10 +97,10 @@ def create_K(pearson_r, printit = False):
     if printit: print_dataset(df)
     return df
 
-#df = create_K(0.99, printit = True)
+#df = create_K(0.99, printit = True, type = "linear")
 
-def create_T(pearson_r, printit = False):
-    df = create_dataset(pearson_r=pearson_r)
+def create_T(pearson_r, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, type = type)
     x3_df =  ["A"] * 1000
     df["Xt"] = x3_df
 
@@ -99,10 +113,10 @@ def create_T(pearson_r, printit = False):
     if printit: print_dataset(df)
     return df
 
-#df = create_T(0.9, printit = True)
+#df = create_T(0.9, printit = True, type = "linear")
 
-def create_Y(pearson_r, printit = False):
-    df = create_dataset(pearson_r=pearson_r)
+def create_Y(pearson_r, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, type = type)
     Xi = df["Y"]
     Y  = df["Xi"] / 10
     df = pd.DataFrame({'Xi': Xi, 'Y': Y})
@@ -113,16 +127,16 @@ def create_Y(pearson_r, printit = False):
     if printit: print_dataset(df)
     return df
 
-#df = create_Y(0.99, printit = True)
+#df = create_Y(0.99, printit = True, type = "linear")
 
 
 #____________________________________________________________
 #____________________________________________________________
 
 
-def create_var1_X(pearson_r, var1, printit = False):
-    df_sign = create_dataset(pearson_r=pearson_r,     size=1000, xlim_min = 0, xlim_max = 0.1, depth = 2)
-    df_rest = create_dataset(pearson_r=pearson_r*depth_faktor, size=9000, xlim_min = 0.1, xlim_max = 1, depth = 1)
+def create_var1_X(pearson_r, var1, printit = False, type = "linear"):
+    df_sign = create_dataset(pearson_r=pearson_r,              size=1000, xlim_min = 0, xlim_max = 0.1, depth = 2, type = type)
+    df_rest = create_dataset(pearson_r=pearson_r*depth_faktor, size=9000, xlim_min = 0.1, xlim_max = 1, depth = 1, type = type)
     df = pd.concat([df_sign, df_rest], ignore_index=True)
 
     if var1 == "K":
@@ -151,20 +165,20 @@ def create_var1_X(pearson_r, var1, printit = False):
     if printit: print_dataset(df)
     return df
 
-#create_var1_X(1, "K", printit = True)
-#create_var1_X(1, "T", printit = True)
-#create_var1_X(0.8, "Y", printit = True)
+#create_var1_X(1, "K", printit = True, type = "linear")
+#create_var1_X(1, "T", printit = True, type = "linear")
+#create_var1_X(0.8, "Y", printit = True, type = "linear)
 
-def create_var1_K(pearson_r, var1, printit = False):
-    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 2)
+def create_var1_K(pearson_r, var1, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 2, type = type)
     x3_df = np.random.randint(1,1001, 1000)/10000
     df["Xk"] =x3_df
-    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000)
+    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 1, type = type)
     x3_append = np.random.randint(1001, 10001, 9000)/10000
     df_append["Xk"] =x3_append
     df = pd.concat([df, df_append], ignore_index=True)
 
-    if var1 == "S":
+    if var1 == "X":
         df["Xi"] /=2
         x1_rand = np.random.randint(5001,10001, 10000) / 10000
         x2_rand = np.random.randint(1,   10001, 10000) / 10000
@@ -188,15 +202,15 @@ def create_var1_K(pearson_r, var1, printit = False):
     if printit: print_dataset(df)
     return df
 
-#create_var1_K(0.9,"X", printit = True)
-#create_var1_K(1,"T", printit = True)
-#create_var1_K(1,"Y", printit = True)
+#create_var1_K(1,"X", printit = True, type = "linear")
+#create_var1_K(1,"T", printit = True, type = "linear")
+#create_var1_K(1,"Y", printit = True, type = "linear")
 
-def create_var1_T(pearson_r, var1, printit = False):
-    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 2)
+def create_var1_T(pearson_r, var1, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 2, type = type)
     x3 = ["A"] * 1000
     df['Xt'] = x3
-    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000)
+    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 1, type = type)
     x3_append = np.random.choice(["B", "C", "D", "E"])
     df_append['Xt'] = x3_append
     df = pd.concat([df, df_append], ignore_index=True)
@@ -223,15 +237,16 @@ def create_var1_T(pearson_r, var1, printit = False):
     df = pd.concat([df, df_append], ignore_index=True)
     if printit: print_dataset(df)
 
-#create_var1_T(.1,"X",True)
-#create_var1_T(1,"K",True)
-#create_var1_T(1,"Y",True)
 
-def create_var1_Y(pearson_r, var1, printit = False):
-    df = create_dataset(pearson_r=pearson_r, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 2)
+#create_var1_T(1,"X",True, type = "linear")
+#create_var1_T(1,"K",True, type = "linear")
+#create_var1_T(1,"Y",True, type = "linear")
+
+def create_var1_Y(pearson_r, var1, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 2, type = type)
     Xi, Y = df["Y"], df["Xi"]
     df["Xi"], df["Y"] = Xi, Y
-    df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size = 9000, xlim_min = 0.1, xlim_max = 1, depth = 1)
+    df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size = 9000, xlim_min = 0.1, xlim_max = 1, depth = 1, type = type)
     Xi, Y = df_append["Y"], df_append["Xi"]
     df_append["Xi"], df_append["Y"] = Xi, Y
     df = pd.concat([df, df_append], ignore_index= True)
@@ -258,24 +273,24 @@ def create_var1_Y(pearson_r, var1, printit = False):
     if printit: print_dataset(df)
     return df
 
-#create_var1_Y(.1, "X", printit = True)
-#create_var1_Y(.1, "K", printit = True)
-#create_var1_Y(.1, "T", printit = True)
+#create_var1_Y(1, "X", printit = True, type = "linear")
+#create_var1_Y(1, "K", printit = True, type = "linear")
+#create_var1_Y(1, "T", printit = True, type = "linear")
 
 
 
 #____________________________________________________________
 #____________________________________________________________
 
-def create_var1_var2_X(pearson_r, var1, var2, printit = False):
-    df_sign = create_dataset(pearson_r=pearson_r,             size=1000, xlim_min = 0, xlim_max = 0.1, depth = 3)
-    df_rest = create_dataset(pearson_r=pearson_r*depth_faktor,size=9000, xlim_min = 0.1, xlim_max = 1, depth = 2)
+def create_var1_var2_X(pearson_r, var1, var2, printit = False, type = "linear"):
+    df_sign = create_dataset(pearson_r=pearson_r,             size=1000, xlim_min = 0, xlim_max = 0.1, depth = 3, type = type)
+    df_rest = create_dataset(pearson_r=pearson_r*depth_faktor,size=9000, xlim_min = 0.1, xlim_max = 1, depth = 2, type = type)
     df = pd.concat([df_sign, df_rest], ignore_index=True)
 
     if var2 == "T": #var3 = X
         x3 =  ["B"] * 10000
         df["Xt"] = x3
-        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**5),size=10000, xlim_min = 0, xlim_max = 1, depth = 1)
+        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0, xlim_max = 1, depth = 1, type = type)
         x3_append = np.random.choice(["A", "C", "D", "E"], 10000)
         df_append['Xt'] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
@@ -299,7 +314,7 @@ def create_var1_var2_X(pearson_r, var1, var2, printit = False):
     elif var2 == "K": #var3 = X
         x3 = np.random.randint(1,5001, 10000)/10000
         df["Xk"] = x3
-        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0, xlim_max = 1, depth = 1)
+        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0, xlim_max = 1, depth = 1, type = type)
         x3_append = np.random.randint(5001, 10001, 10000)/10000
         df_append['Xk'] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
@@ -322,7 +337,7 @@ def create_var1_var2_X(pearson_r, var1, var2, printit = False):
 
     elif var2 == "Y": #var3 = X
         df["Y"]  = df["Y"]/2
-        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0, xlim_max = 1, depth = 1)
+        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0, xlim_max = 1, depth = 1, type = type)
         df_append['Y'] = df_append['Y']/2 + 0.5
         df = pd.concat([df, df_append], ignore_index=True)
 
@@ -346,35 +361,35 @@ def create_var1_var2_X(pearson_r, var1, var2, printit = False):
     if printit: print_dataset(df)
     return df
 
-#create_var1_var2_X(1,"K", "T", printit = True)
-#create_var1_var2_X(1,"Y", "T", printit = True)
-#create_var1_var2_X(1,"T", "K", printit = True)
-#create_var1_var2_X(1,"Y", "K", printit = True)
-#create_var1_var2_X(1,"K", "Y", printit = True)
-#create_var1_var2_X(1,"T", "Y", printit = True)
+#create_var1_var2_X(1,"K", "T", printit = True, type = "linear")
+#create_var1_var2_X(1,"Y", "T", printit = True, type = "linear")
+#create_var1_var2_X(1,"T", "K", printit = True, type = "linear")
+#create_var1_var2_X(1,"Y", "K", printit = True, type = "linear")
+#create_var1_var2_X(1,"K", "Y", printit = True, type = "linear")
+#create_var1_var2_X(1,"T", "Y", printit = True, type = i)
 
-def create_var1_var2_K(pearson_r, var1, var2, printit = False):
+def create_var1_var2_K(pearson_r, var1, var2, printit = False, type = "linear"):
 
-    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 3)
+    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 3, type = type)
     x3_df = np.random.randint(1,1001, 1000)/10000
     df["Xk"] =x3_df
-    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 2)
+    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 2, type = type)
     x3_append = np.random.randint(1001, 10001, 9000)/10000
     df_append["Xk"] =x3_append
     df = pd.concat([df, df_append], ignore_index=True)
 
 
     if var2 == "X": #var3 = K     CAVE: Hier neuer Datensatz, um die Limits für den x-Split an die Steigung des späteren k-Splits anzupassen
-        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min = 0, xlim_max = 0.5)
+        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min = 0, xlim_max = 0.5, type = type)
         x3_df = np.random.randint(1, 1001, 1000) / 10000
         df["Xk"] = x3_df
-        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_min = 0, xlim_max = 0.5)
+        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_min = 0, xlim_max = 0.5, type = type)
         x3_append = np.random.randint(1001, 10001, 9000) / 10000
         df_append["Xk"] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
 
         #Datensatz für den X-Split
-        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0.5, xlim_max = 1, depth = 1)
+        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2),size=10000, xlim_min = 0.5, xlim_max = 1, depth = 1, type = type)
         x3_rand = np.random.randint(1,   10001, 10000) / 10000
         df_append["Xk"] = x3_rand
         df = pd.concat([df, df_append], ignore_index=True)
@@ -397,7 +412,7 @@ def create_var1_var2_K(pearson_r, var1, var2, printit = False):
     elif var2 == "T": #var3 = K
         x4 = ["B"] * 10000
         df["Xt"] = x4
-        df_append = create_dataset(pearson_r = pearson_r*(depth_faktor**2), size = 10000, xlim_min = 0, xlim_max = 1, depth = 1)
+        df_append = create_dataset(pearson_r = pearson_r*(depth_faktor**2), size = 10000, xlim_min = 0, xlim_max = 1, depth = 1, type = type)
         df_append['Xk'] = np.random.randint(1,10001, 10000) / 10000
         df_append['Xt'] = np.random.choice(["A", "C", "D", "E"], 10000)
         df = pd.concat([df, df_append], ignore_index=True)
@@ -421,10 +436,10 @@ def create_var1_var2_K(pearson_r, var1, var2, printit = False):
     elif var2 == "Y": #var3 = K     | || CAVE: Hier neuer Datensatz, um die Limits für den x-Split an die Steigung des späteren k-Splits anzupassen
                       #                        Außerdem Index-Shift (Xi und Y vertauscht, um nach vor dem Split in Y noch einen sinnvollen Split einzubauen.
         #Neuer Datensatz (Eigentlich wie der "alte" nur mit veränderten Limits aufgrund der Steigung)
-        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min = 0, xlim_max = 0.5)
+        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min = 0, xlim_max = 0.5, type = type)
         x3_df = np.random.randint(1, 1001, 1000) / 10000
         df["Xk"] = x3_df
-        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_min = 0, xlim_max = 0.5)
+        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_min = 0, xlim_max = 0.5, type = type)
         x3_append = np.random.randint(1001, 10001, 9000) / 10000
         df_append["Xk"] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
@@ -432,7 +447,7 @@ def create_var1_var2_K(pearson_r, var1, var2, printit = False):
         #Index-Shift
         Xi, Y = df["Y"], df["Xi"]
         df["Xi"], df["Y"] = Xi, Y
-        df_append = create_dataset(pearson_r = pearson_r*(depth_faktor**2), size = 10000, xlim_min = 0.5, xlim_max = 1, depth = 1)
+        df_append = create_dataset(pearson_r = pearson_r*(depth_faktor**2), size = 10000, xlim_min = 0.5, xlim_max = 1, depth = 1, type = type)
         Xi, Y = df_append["Y"], df_append["Xi"]
         df_append["Xi"], df_append["Y"] = Xi, Y
         df_append["Xk"] = np.random.randint(1,   10001, 10000) / 10000
@@ -457,32 +472,32 @@ def create_var1_var2_K(pearson_r, var1, var2, printit = False):
     if printit: print_dataset(df)
     return df
 
-#create_var1_var2_K(pearson_r = 1, var1 = "T", var2 = "X", printit = True)
-#create_var1_var2_K(pearson_r = 1, var1 = "Y", var2 = "X", printit = True)
-#create_var1_var2_K(pearson_r = 1, var1 = "X", var2 = "T", printit = True)
-#create_var1_var2_K(pearson_r = 1, var1 = "Y", var2 = "T", printit = True)
-#create_var1_var2_K(pearson_r = 1, var1 = "X", var2 = "Y", printit = True)
-#create_var1_var2_K(pearson_r = 1, var1 = "T", var2 = "Y", printit = True)
+#create_var1_var2_K(pearson_r = 1, var1 = "T", var2 = "X", printit = True, type = "linear")
+#create_var1_var2_K(pearson_r = 1, var1 = "Y", var2 = "X", printit = True, type = "linear")
+#create_var1_var2_K(pearson_r = 1, var1 = "X", var2 = "T", printit = True, type = "linear")
+#create_var1_var2_K(pearson_r = 1, var1 = "Y", var2 = "T", printit = True, type = "linear")
+#create_var1_var2_K(pearson_r = 1, var1 = "X", var2 = "Y", printit = True, type = "linear")
+#create_var1_var2_K(pearson_r = 1, var1 = "T", var2 = "Y", printit = True, type = "linear")
 
-def create_var1_var2_T(pearson_r, var1, var2, printit = False):
-    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 3, xlim_min = 0)
+def create_var1_var2_T(pearson_r, var1, var2, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, size = 1000, depth = 3, xlim_min = 0, type = type)
     x3 = ["A"] * 1000
     df['Xt'] = x3
-    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 2)
+    df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 2, type = type)
     x3_append = np.random.choice(["B", "C", "D", "E"])
     df_append['Xt'] = x3_append
     df = pd.concat([df, df_append], ignore_index=True)
 
     if var2 == "X": #var3 = T     CAVE: Hier neuer Datensatz, um die Limits für den x-Split an die Steigung des späteren t-Splits anzupassen
-        df = create_dataset(pearson_r=pearson_r, size=1000, xlim_min = 0, xlim_max = 0.5, depth=3)
+        df = create_dataset(pearson_r=pearson_r, size=1000, xlim_min = 0, xlim_max = 0.5, depth=3, type = type)
         x3 = ["A"] * 1000
         df['Xt'] = x3
-        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, xlim_max = 0.5, depth = 2)
+        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, xlim_max = 0.5, depth = 2, type = type)
         x3_append = np.random.choice(["B", "C", "D", "E"])
         df_append['Xt'] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
 
-        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2), size=10000, xlim_min = 0.5, xlim_max = 1, depth=1)
+        df_append = create_dataset(pearson_r=pearson_r*(depth_faktor**2), size=10000, xlim_min = 0.5, xlim_max = 1, depth=1, type = type)
         df_append['Xt']  = np.random.choice(["A", "B", "C", "D", "E"], 10000)
         df = pd.concat([df, df_append], ignore_index=True)
 
@@ -503,7 +518,7 @@ def create_var1_var2_T(pearson_r, var1, var2, printit = False):
 
     elif var2 == "K":
         df['Xk'] = np.random.randint(1,    5001, 10000) / 10000
-        df_append       = create_dataset(pearson_r=pearson_r*(depth_faktor**2), size=10000, depth=1)
+        df_append       = create_dataset(pearson_r=pearson_r*(depth_faktor**2), size=10000, depth=1, type = type)
         df_append['Xt'] = np.random.choice(["A", "B", "C", "D", "E"], 10000)
         df_append['Xk'] = np.random.randint(5001,10001, 10000) / 10000
         df = pd.concat([df, df_append], ignore_index=True)
@@ -525,15 +540,15 @@ def create_var1_var2_T(pearson_r, var1, var2, printit = False):
 
     elif var2 == "Y": #var3 = T   | CAVE: Hier neuer Datensatz, um die Limits für den k-Split an die Steigung des späteren y-Splits anzupassen
                                         #Außerdem: Indextausch zwischen x- und y-Achse
-        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min=0, xlim_max = 0.5)
+        df = create_dataset(pearson_r=pearson_r, size=1000, depth=3, xlim_min=0, xlim_max = 0.5, type = type)
         x3 = ["A"] * 1000
         df['Xt'] = x3
-        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_max = 0.5)
+        df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_max = 0.5, type = type)
         x3_append = np.random.choice(["B", "C", "D", "E"])
         df_append['Xt'] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
 
-        df_append       = create_dataset(pearson_r=pearson_r*(depth_faktor**2), size=10000, depth=1, xlim_min=0.5, xlim_max = 1)
+        df_append       = create_dataset(pearson_r=pearson_r*(depth_faktor**2), size=10000, depth=1, xlim_min=0.5, xlim_max = 1, type = type)
         df_append['Xt'] = np.random.choice(["A", "B", "C", "D", "E"], 10000)
         df = pd.concat([df, df_append], ignore_index=True)
         Xi, Y = df['Y'], df['Xi']                                               #x- und y-Achse werden getauscht!
@@ -558,18 +573,18 @@ def create_var1_var2_T(pearson_r, var1, var2, printit = False):
     df = pd.concat([df, df_append], ignore_index=True)
     if printit: print_dataset(df)
 
-#create_var1_var2_T(1, "K", "X", printit = True)
-#create_var1_var2_T(1, "Y", "X", printit = True)
-#create_var1_var2_T(1, "X", "K", printit = True)
-#create_var1_var2_T(1, "Y", "K", printit = True)
-#create_var1_var2_T(1, "X", "Y", printit = True)
-#create_var1_var2_T(1, "K", "Y", printit = True)
+#create_var1_var2_T(1, "K", "X", printit = True, type = "linear")
+#create_var1_var2_T(1, "Y", "X", printit = True, type = "linear")
+#create_var1_var2_T(1, "X", "K", printit = True, type = "linear")
+#create_var1_var2_T(1, "Y", "K", printit = True, type = "linear")
+#create_var1_var2_T(1, "X", "Y", printit = True, type = "linear")
+#create_var1_var2_T(1, "K", "Y", printit = True, type = "linear")
 
-def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
-    df = create_dataset(pearson_r=pearson_r, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 3)
+def create_var1_var2_Y(pearson_r, var1, var2, printit = False, type = "linear"):
+    df = create_dataset(pearson_r=pearson_r, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 3, type = type)
     Xi, Y = df["Y"], df["Xi"]
     df["Xi"], df["Y"] = Xi, Y
-    df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size = 9000, xlim_min = 0.1, xlim_max = 1, depth = 2)
+    df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size = 9000, xlim_min = 0.1, xlim_max = 1, depth = 2, type = type)
     Xi, Y = df_append["Y"], df_append["Xi"]
     df_append["Xi"], df_append["Y"] = Xi, Y
     df = pd.concat([df, df_append], ignore_index= True)
@@ -577,7 +592,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
     if var2 == "X": #var3 = Y   | Cave! (noch keine ideale Lösung gefunden. Die vorliegende Lösung ist jedoch zweckmäßig
                     #             ... und weist in jedem Schritt eine Zunahme an Korrelation und einen p-Wert < 0.05 auf
         df["Xi"] /= 2
-        df_append = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1)
+        df_append = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1, type = type)
         Xi, Y = df_append["Y"], df_append["Xi"]
         df_append["Xi"], df_append["Y"] = Xi/2 + 0.5, Y
         df = pd.concat([df, df_append], ignore_index=True)
@@ -598,7 +613,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
 
     elif var2 == "K":
         df["Xk"]       = np.random.randint(1,     5001, 10000) / 10000
-        df_append      = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1)
+        df_append      = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1, type = type)
         df_append["Xk"]= np.random.randint(5001, 10001, 10000) / 10000
         Xi, Y = df_append["Y"], df_append["Xi"]
         df_append["Xi"], df_append["Y"] = Xi, Y
@@ -621,7 +636,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
 
     elif var2 == "T": #var3 = Y
         df["Xt"]       = ["B"] * 10000
-        df_append      = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1)
+        df_append      = create_dataset(pearson_r=pearson_r * (depth_faktor**2), size = 10000, depth = 1, type = type)
         df_append["Xt"]= np.random.choice(["A", "C", "D", "E"], 10000)
         Xi, Y = df_append["Y"], df_append["Xi"]
         df_append["Xi"], df_append["Y"] = Xi, Y
@@ -643,18 +658,15 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False):
             df_append = pd.DataFrame({'Xi': x1_rand, 'Y': x2_rand, 'Xt': x3_rand, 'Xk': x4_rand})
 
     df = pd.concat([df, df_append], ignore_index= True)
-    print(stats.pearsonr(df["Xi"], df["Y"]))
-    print(stats.pearsonr(df["Xi"][df["Xk"] < 0.5], df["Y"][df["Xk"] < 0.5]))
-    print(stats.pearsonr(df["Xi"][df["Y"] < 0.5], df["Y"][df["Y"] < 0.5]))
     if printit: print_dataset(df)
     return df
 
-#create_var1_var2_Y(1, "K", "X", printit = True)
-#create_var1_var2_Y(1, "T", "X", printit = True)
-#create_var1_var2_Y(1, "X", "K", printit = True)
-#create_var1_var2_Y(1, "T", "K", printit = True)
-#create_var1_var2_Y(1, "X", "T", printit = True)
-#create_var1_var2_Y(1, "K", "T", printit = True)
+#create_var1_var2_Y(1, "K", "X", printit = True, type = "linear")
+#create_var1_var2_Y(1, "T", "X", printit = True, type = "linear")
+#create_var1_var2_Y(1, "X", "K", printit = True, type = "linear")
+#create_var1_var2_Y(1, "T", "K", printit = True, type = "linear")
+#create_var1_var2_Y(1, "X", "T", printit = True, type = "linear")
+#create_var1_var2_Y(1, "K", "T", printit = True, type = "linear")
 
 
 #____________________________________________________________
