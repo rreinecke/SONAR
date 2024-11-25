@@ -220,7 +220,7 @@ def create_var1_Kt(pearson_r, var1, printit = False, type = "linear"):
     x3 = ["A"] * 1000
     df['Kt'] = x3
     df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 1, type = type)
-    x3_append = np.random.choice(["B", "C", "D", "E"])
+    x3_append = np.random.choice(["B", "C", "D", "E"], 9000)
     df_append['Kt'] = x3_append
     df = pd.concat([df, df_append], ignore_index=True)
     if var1 == "X":
@@ -492,7 +492,7 @@ def create_var1_var2_Kt(pearson_r, var1, var2, printit = False, type = "linear")
     x3 = ["A"] * 1000
     df['Kt'] = x3
     df_append = create_dataset(pearson_r=pearson_r*depth_faktor, size = 9000, depth = 2, type = type)
-    x3_append = np.random.choice(["B", "C", "D", "E"])
+    x3_append = np.random.choice(["B", "C", "D", "E"], 9000)
     df_append['Kt'] = x3_append
     df = pd.concat([df, df_append], ignore_index=True)
 
@@ -501,7 +501,7 @@ def create_var1_var2_Kt(pearson_r, var1, var2, printit = False, type = "linear")
         x3 = ["A"] * 1000
         df['Kt'] = x3
         df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, xlim_max = 0.5, depth = 2, type = type)
-        x3_append = np.random.choice(["B", "C", "D", "E"])
+        x3_append = np.random.choice(["B", "C", "D", "E"], 9000)
         df_append['Kt'] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
 
@@ -552,7 +552,7 @@ def create_var1_var2_Kt(pearson_r, var1, var2, printit = False, type = "linear")
         x3 = ["A"] * 1000
         df['Kt'] = x3
         df_append = create_dataset(pearson_r=pearson_r * depth_faktor, size=9000, depth=2, xlim_max = 0.5, type = type)
-        x3_append = np.random.choice(["B", "C", "D", "E"])
+        x3_append = np.random.choice(["B", "C", "D", "E"], 9000)
         df_append['Kt'] = x3_append
         df = pd.concat([df, df_append], ignore_index=True)
 
@@ -657,7 +657,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False, type = "linear"):
             x2_rand = np.random.randint(1,    10001, 20000) / 10000
             x3_rand = np.random.choice(["A", "B", "C", "D", "E"], 20000)
             df_append = pd.DataFrame({'X': x1_rand, 'Y': x2_rand, 'Kt': x3_rand})
-            
+
         elif var1 == "Kn": #var2 = Kt, var3 = Y
             df['Kn']= np.random.randint(1,     5001, 20000) / 10000
             x1_rand = np.random.randint(1,    10001, 20000) / 10000
@@ -682,7 +682,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False, type = "linear"):
 #____________________________________________________________
 
 
-def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear", ord_rand = False, ord_norm = False, nom = False):
+def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear", kat = False, kog = False, kon = False):
     #Check the arguments.
     if (split1 not in ["O", "X", "Kn", "Kt", "Y"]) or (split2 not in ["O", "X", "Kn", "Kt", "Y"]) or (split3 not in ["X", "Kn", "Kt", "Y"]):
         print("Wrong input")
@@ -718,42 +718,21 @@ def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear
         return
 
     size = len(df)
-    if ord_rand:
-        df["Ordinal random"] = np.random.randint(1, 10001, size) / 10000
-    if ord_norm:
+    if kat:
+        df["kat"] = np.random.choice(["v", "w", "x", "y", "z"], size)
+    if kog:
+        df["kog"] = np.random.randint(1, 10001, size) / 10000
+    if kon:
         x_append = np.random.normal(0, 1, size)
         x_append = (x_append / 6) + 0.5
         for i in range(len(x_append)):
             if (x_append[i] <= 0) or (x_append[i] >1):
                 x_append[i] =np.random.randint(1,10001)/10000
-        df["Ordinal normald."] = x_append
-    if nom:
-        df["Nominal"] = np.random.choice(["v", "w", "x", "y", "z"])
+        df["kon"] = x_append
+
     if printit:
         print_dataset(df)
     return df
 
 #Testaufruf
-#test_data("Kt","Kn","X", 1, type = "linear", printit = True, ord_rand = True, ord_norm = True, nom = True)
-
-
-#All possibilities below:
-r_list = [0.1, 0.3, 0.5]
-type_list = ["linear", "square", "cub", "exp", "exp_n", "sqrt"]
-tf_list = [True, False]
-n = 0
-for a in ["O", "X", "Kn", "Kt", "Y"]:
-    for b in ["O", "X", "Kn", "Kt", "Y"]:
-        if (a != "O") and (b == "O"): continue
-        if (a == b)   and (b != "O"): continue
-        if ((a == "X") and (b == "Y")) or ((a == "Y") and (b == "X")): continue #Wäre zwar möglich, aber nicht sinnvoll umsetzbar.
-        for c in ["X", "Kn", "Kt", "Y"]:
-            if (c == a) or (c == b): continue
-            for d in r_list:
-                for e in type_list:
-                    for f in tf_list:
-                        for g in tf_list:
-                            for h in tf_list:
-                                print(f"split1 = {a}, split2 = {b}, split3 = {c}, pearson_r = {d}, type = {e}, ord_rand = {f}, ord_norm = {g}, nom = {h}; counter = {n}")
-                                test_data(split1 = a, split2 = b, split3 = c, pearson_r = d, type = e, ord_rand = f, ord_norm = g, nom = h)
-                                n+=1
+#test_data("Kt","Kn","X", 1, type = "linear", printit = True, kat = True, kog = True, kon = True)
