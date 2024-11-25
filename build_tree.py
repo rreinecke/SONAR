@@ -39,12 +39,13 @@ class SONAR:
         self.max_depth = max_depth  # Trees are very small but one can also set a max depth, if none = disabled
 
         # Global variables
-        self.target = ""  # target variable
-        self.splits = []  # split decisions across the recursive calls
-        self.u_id = 0  # ID of the root node
-        self.n_data = len(self.df)  # total number of points
-        self.actual_bins = None  # Duplicated bins can lead to fewer bins than requested
-        self.n_actual_bins = 0
+        self.target         = ""  # target variable
+        self.splits         = []  # split decisions across the recursive calls
+        self.u_id           = 0  # ID of the root node
+        self.n_data         = len(self.df)  # total number of points
+        self.actual_bins    = None  # Duplicated bins can lead to fewer bins than requested
+        self.n_actual_bins  = 0
+        self.tree_dict      = None #Output-Tree
 
     def prepare(self, target):
         """
@@ -63,6 +64,7 @@ class SONAR:
                         max_initial = c
                         max_initial_var = i
         print("Max initial correlation is {:.2f} to variable {}".format(max_initial, max_initial_var))
+        self.tree_dict = {'Corr': max_initial, 'Relationship_Var' : max_initial_var, 'DP': len(self.df[self.inputs[0]])}
 
         # Initialize cutting points
         for target in self.inputs:
@@ -84,7 +86,7 @@ class SONAR:
         """
         Wrapper call to build tree.
         """
-        self.get_tree(self.df, self.max_depth, self.inputs, self.n_actual_bins)
+        return self.get_tree(self.df, self.max_depth, self.inputs, self.n_actual_bins)
 
     def check_split(self, bucket_l, bucket_r, base_corr, cat, lvar, max_corr, categorical, cat_ranges=None):
         """
@@ -158,6 +160,7 @@ class SONAR:
                         split_info["max_corr"] = np.abs(corr_l)
                     else:
                         split_info["max_corr"] = np.abs(corr_r)
+
                     split_info["max_cat"] = cat
                     split_info["is_cat_split"] = categorical
                     split_info["max_var"] = lvar
@@ -168,7 +171,7 @@ class SONAR:
                     split_info["max_corr_r"] = corr_r
         return split_info
 
-    def get_tree(self, data, max_depth, l_var, n_bins, cd=0, id=None, base_corr=0):
+    def get_tree(self, data, max_depth, l_var, n_bins, cd=0, id=None, base_corr=0, tree_dict = None):
         """
         l_vars: list of variables to test
         n_bins: number of bins
@@ -177,12 +180,15 @@ class SONAR:
 
         # print("Tree at depth: {}".format(cd))
         if cd == max_depth:
-            return
+            return self.tree_dict
         spaces = ""
         if id is None:
             # plot_root(data)
             id = 0
             print("Root node")
+
+        if not tree_dict:
+            tree_dict = self.tree_dict
 
         max_corr = 0  # biggest correlation
         max_corr_l = 0  # left corr at max
@@ -274,7 +280,7 @@ class SONAR:
 
         # have we found a split?
         if not success:
-            return
+            return self.tree_dict
 
         # We have found a better split
         self.splits.append(
@@ -285,9 +291,15 @@ class SONAR:
         if is_cat_split:
             data_l = data.loc[data[max_var] == max_cat].copy()
             data_r = data.loc[data[max_var] != max_cat].copy()
+            split_val = max_cat
         else:
             data_l = data.loc[data[max_var + "_code"] <= max_cat].copy()
             data_r = data.loc[data[max_var + "_code"] > max_cat].copy()
+            split_val = max_val
+
+        tree_dict['Node'] = {'Split': True, 'Split_Var': max_var, 'Split_Value': split_val}
+        tree_dict['left'] = {'Corr': max_corr_l, 'Relationship_Var': relationship_var, 'DP': len(data_l), 'Node': {'Split': False}}
+        tree_dict['right']= {'Corr': max_corr_r, 'Relationship_Var': relationship_var, 'DP': len(data_r), 'Node': {'Split': False}}
 
         self.u_id += 1
 
@@ -306,7 +318,7 @@ class SONAR:
         # Left tree
         if len(data_l) > 0:
             write_data(data_l, cd + 1, "left", self.u_id, id, relationship_var, self.target)
-            self.get_tree(data_l, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr)
+            self.get_tree(data_l, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr, tree_dict['left'])
 
         self.u_id += 1
 
@@ -324,4 +336,7 @@ class SONAR:
         # Right tree
         if len(data_r) > 0:
             write_data(data_r, cd + 1, "right", self.u_id, id, relationship_var, self.target)
-            self.get_tree(data_r, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr)
+            self.get_tree(data_r, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr, tree_dict['right'])
+
+        if cd == 0:
+            return self.tree_dict
