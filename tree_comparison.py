@@ -60,7 +60,17 @@ Test   = {'Corr'                : 0,
              {'Corr'            : 1,
               'Relationship_Var': "Rel_Var_Test_1",
               'DP'              : 50,
-              'Node'            : {'Split': False}
+              'Node'            : {'Split': True, 'Split_Var': "Split_Var_Muster_2", 'Split_Value': 0.2},
+              'left':
+                   {'Corr': 0.1,
+                    'Relationship_Var': "Rel_Var_Muster_1",
+                    'DP': 50,
+                    'Node': {'Split': False}},
+               'right':
+                   {'Corr': 0.5,
+                    'Relationship_Var': "Rel_Var_Muster_1",
+                    'DP': 50,
+                    'Node': {'Split': False}}
               }
          }
 
@@ -68,64 +78,69 @@ Test   = {'Corr'                : 0,
 #_______________________________________________________________________________________________________________________
 #_______________________________________________________________________________________________________________________
 
-
 # Funktion zum Vergleich von zwei Knoten
-def compare_nodes(true_node, test_node, sampi_score_tracker):
-    # Prüfung, ob beide Knoten Splits enthalten
-    if true_node['Node']['Split']:
-        sampi_score_tracker['n_nodes'] += 1
+def compare_nodes(true_node, test_node, sampi_score_tracker, type="rel"):
 
-        # Vergleich, ob beide Bäume splitten.
-        if not test_node['Node']['Split']:
-            sampi_score_tracker['sampi_score'] += 1      # Strafpunkt, da im Muster-Baum ein Split vorliegt, im Test-Baum aber nicht.
+    if type == "rel" and not true_node['Node']['Split']: # Falls "rel", ignoriere Knoten, die nur im Test-Baum existieren
+        return
+    elif not true_node['Node']['Split'] and not test_node['Node']['Split']: # Teste (falls "abs") nur Knoten, wo in min. einem Baum ein Split vorliegt.
+        return
+
+    sampi_score_tracker['n_nodes'] += 1
+
+    # Vergleich, ob beide Knoten splitten
+    if not (true_node['Node']['Split'] and test_node['Node']['Split']): # Falls nur einer der beiden Bäume splittet.
+        sampi_score_tracker['sampi_score'] += 1
+    else: # Falls es bei beiden Bäumen an diesem Knoten zu einem Split kommt.
+        # Vergleich der Split-Variablen:
+        if true_node['Node']['Split_Var'] != test_node['Node']['Split_Var']:
+            sampi_score_tracker['sampi_score'] += 1
         else:
-            # Vergleich der Split-Variablen
-            if true_node['Node'].get('Split_Var') != test_node['Node'].get('Split_Var'):
-                sampi_score_tracker['sampi_score']     += 1  # Strafpunkt für unterschiedliche Split-Variablen
-            else:
-                # Vergleich der Split-Werte
-                split_value_1 = true_node['Node'].get('Split_Value', 0)
-                split_value_2 = test_node['Node'].get('Split_Value', 0)
-                if (type(split_value_1) == str) and (split_value_1 != split_value_2):       # Muster_Node ist "str", aber Test_Node ist nicht identisch
-                    sampi_score_tracker['sampi_score']      += 1
-                elif (type(split_value_1) != str) and (type(split_value_2) != str):         # Muster_Node und Test_Node sind Zahlen
-                    sampi_score_tracker['sampi_score']      += min(abs(split_value_1 - split_value_2)*2, 1)
-                            # Strafpunkte für Unterschied in Split-Werten
-                            # Der designierte Split ist bei 0.5 (bzw. 0.1); die Werte verlaufen zwischen 0 und 1
-                            # Daher wird die Differenz verdoppelt.
-                            # (jedoch maximal 1 für den letzten Split mit 0.1 als designierte Grenze)
-                elif (type(split_value_1) != str) and (type(split_value_2) == str):         # Muster_Node ist Zahl, aber Test_Node nicht.
-                    sampi_score_tracker['sampi_score']      += 1
+            # Vergleich der Split-Werte.
+            split_value_1 = true_node['Node'].get('Split_Value', 0)
+            split_value_2 = test_node['Node'].get('Split_Value', 0)
+            if isinstance(split_value_1, str) and split_value_1 != split_value_2:
+                sampi_score_tracker['sampi_score'] += 1
+            elif isinstance(split_value_1, (int, float)) and isinstance(split_value_2, (int, float)):
+                sampi_score_tracker['sampi_score'] += min(abs(split_value_1 - split_value_2) * 2, 1)
+            elif isinstance(split_value_1, (int, float)) and isinstance(split_value_2, str):
+                sampi_score_tracker['sampi_score'] += 1
 
-    # Vergleich der linken Teilbäume, falls vorhanden
+    # Rekursion in den linken Teilbäumen
     if 'left' in true_node:
         if 'left' in test_node:
-            compare_nodes(true_node['left'], test_node['left'], sampi_score_tracker)
-        else: # If 'left' only exists in true_node
-            compare_nodes(true_node['left'], {'Node': {'Split': False}}, sampi_score_tracker)
+            compare_nodes(true_node['left'], test_node['left'], sampi_score_tracker, type=type)
+        else:    # If 'left' only exists in true_node
+            compare_nodes(true_node['left'], {'Node': {'Split': False}}, sampi_score_tracker, type=type)
+    elif ('left' not in true_node) and ('left' in test_node) and (type == 'abs'):
+        compare_nodes({'Node': {'Split': False}}, test_node['left'], sampi_score_tracker, type=type)
 
-    # Vergleich der linken Teilbäume, falls vorhanden
+    # Rekursion in den rechten Teilbäumen
     if 'right' in true_node:
         if 'right' in test_node:
-            compare_nodes(true_node['right'], test_node['right'], sampi_score_tracker)
-        else: # If 'left' only exists in true_node
-            compare_nodes(true_node['right'], {'Node': {'Split': False}}, sampi_score_tracker)
+            compare_nodes(true_node['right'], test_node['right'], sampi_score_tracker, type=type)
+        else:   # If 'right' only exists in true_node
+            compare_nodes(true_node['right'], {'Node': {'Split': False}}, sampi_score_tracker, type=type)
+    elif ('right' not in true_node) and ('right' in test_node) and (type == 'abs'):
+        compare_nodes({'Node': {'Split': False}}, test_node['right'], sampi_score_tracker, type=type)
 
-# Funktion zur Berechnung des Sampi-Werts. (Similarity of A Manifested and Prototype-tree Indicator)
-def calc_sampi(true_tree, test_tree):
+
+# Funktion zur Berechnung des Sampi-Werts (Similarity of A Manifested and Prototype-tree Indicator)
+def calc_sampi(true_tree, test_tree, type="rel"):
     sampi_score_tracker = {'sampi_score': 0, 'n_nodes': 0}
 
     # Vergleich der Wurzelknoten starten
-    compare_nodes(true_tree, test_tree, sampi_score_tracker)
+    compare_nodes(true_tree, test_tree, sampi_score_tracker, type=type)
 
-    # Sampi_Score hinsichtlich der Gesamtzahl an untersuchten Knoten normieren (Sampi berechnen).
+    # Sampi_Score hinsichtlich der Gesamtzahl an untersuchten Knoten normieren (Sampi berechnen)
     sampi_score = sampi_score_tracker['sampi_score']
-    n_nodes     = sampi_score_tracker['n_nodes']
+    n_nodes = sampi_score_tracker['n_nodes']
     sampi = sampi_score / n_nodes if n_nodes > 0 else 0
     return sampi
 
-#print("\u03e1 = ", calc_sampi(Muster, Test))
 
+#print("\u03e1_rel = ", calc_sampi(Muster, Test, type = "rel"))
+#print("\u03e1_abs = ", calc_sampi(Muster, Test, type = "abs"))
 
 
 #_______________________________________________________________________________________________________________________
