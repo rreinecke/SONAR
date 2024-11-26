@@ -14,6 +14,15 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+def p_sym(p):  #Formatiert die p-Werte (Fehler 1. Art) für print-Befehle.
+    if p >= 0.05:                     p_val = "= {:.3f}".format(p)
+    elif (p < 0.05) and (p >= 0.01):  p_val = "< 0.05¹".format(p)
+    elif (p < 0.01) and (p > 0.001):  p_val = "< 0.01²".format(p)
+    elif (p < 0.001) and (p != -999): p_val = "< 0.001³".format(p)
+    return p_val
+
+
+
 class SONAR:
     """
 
@@ -25,7 +34,7 @@ class SONAR:
     alpha = 0.001  # Minimum p value of the correlation test to allow slit.
     bins = 100  # Number of bins to separate data into.
 
-    def __init__(self, input_data, input_vars, categoricals=None, max_depth=None):
+    def __init__(self, input_data, input_vars, categoricals=None, max_depth=None, type_rel = "spearman"):
         # Inputs supplied by the user
         if categoricals is None:
             categoricals = []
@@ -45,7 +54,9 @@ class SONAR:
         self.n_data         = len(self.df)  # total number of points
         self.actual_bins    = None  # Duplicated bins can lead to fewer bins than requested
         self.n_actual_bins  = 0
-        self.tree_dict      = None #Output-Tree
+        self.tree_dict      = None      #Output-Tree
+        if type_rel == "spearman":
+            self.symbol     = "\u03f1"
 
     def prepare(self, target):
         """
@@ -92,16 +103,18 @@ class SONAR:
         """
         This method implements the split decision.
         """
-        split_info = {"max_corr": 0,  # All the information recorded for a specific split
-                      "max_val": 0,
-                      "max_cat": "",
-                      "is_cat_split": True,
-                      "max_var": "",
-                      "leri": "left",
+        split_info = {"max_corr":        0,  # All the information recorded for a specific split
+                      "max_val":         0,
+                      "max_cat":         "",
+                      "is_cat_split":    True,
+                      "max_var":         "",
+                      "leri":            "left",
                       "relationship_var": "",
-                      "success": False,
-                      "max_corr_l": 0,
-                      "max_corr_r": 0}
+                      "success":          False,
+                      "max_corr_l":       0,
+                      "max_corr_r":       0,
+                      "min_p_val_l":      1,
+                      "min_p_val_r":      1}
 
         # The left and right bucket of the current split
         n_lbucket = len(bucket_l)
@@ -125,12 +138,14 @@ class SONAR:
                 # Left
                 corr_tmp, p_value = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
                 if p_value < self.alpha and corr_tmp != np.nan:
-                    corr_l = np.abs(corr_tmp)
+                    corr_l  = np.abs(corr_tmp)
+                    p_val_l = p_value
 
                 # Right
                 corr_tmp, p_value = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
                 if p_value < self.alpha and corr_tmp != np.nan:
-                    corr_r = np.abs(corr_tmp)
+                    corr_r  = np.abs(corr_tmp)
+                    p_val_r = p_value
 
                 if corr_r == 0 and corr_l == 0:
                     continue
@@ -167,8 +182,10 @@ class SONAR:
                     split_info["leri"] = split_found
                     split_info["relationship_var"] = rel
                     split_info["success"] = True
-                    split_info["max_corr_l"] = corr_l
-                    split_info["max_corr_r"] = corr_r
+                    split_info["max_corr_l"]  = corr_l
+                    split_info["max_corr_r"]  = corr_r
+                    split_info["p_val_l"] = p_sym(p_val_l)
+                    split_info["p_val_r"] = p_sym(p_val_r)
         return split_info
 
     def get_tree(self, data, max_depth, l_var, n_bins, cd=0, id=None, base_corr=0, tree_dict = None):
@@ -216,11 +233,13 @@ class SONAR:
                         continue
                     else:
                         success = True
-                        max_corr = res["max_corr"]  # biggest correlation
+                        max_corr = res["max_corr"]      # biggest correlation
                         max_corr_l = res["max_corr_l"]  # left corr at max
                         max_corr_r = res["max_corr_r"]  # right corr at max
-                        max_val = res["max_val"]  # split point value
-                        max_cat = res["max_cat"]  # split point category
+                        p_val_l = res["p_val_l"]        # left p_value
+                        p_val_r = res["p_val_r"]        # right p_value
+                        max_val = res["max_val"]        # split point value
+                        max_cat = res["max_cat"]        # split point category
                         is_cat_split = res["is_cat_split"]
                         max_var = res["max_var"]
                         leri = res["leri"]
@@ -243,11 +262,13 @@ class SONAR:
                         continue
                     else:
                         success = True
-                        max_corr = res["max_corr"]  # biggest correlation
+                        max_corr = res["max_corr"]      # biggest correlation
                         max_corr_l = res["max_corr_l"]  # left corr at max
                         max_corr_r = res["max_corr_r"]  # right corr at max
-                        max_val = res["max_val"]  # split point value
-                        max_cat = res["max_cat"]  # split point category
+                        p_val_l = res["p_val_l"]        # left p_value
+                        p_val_r = res["p_val_r"]        # right p_value
+                        max_val = res["max_val"]        # split point value
+                        max_cat = res["max_cat"]        # split point category
                         is_cat_split = res["is_cat_split"]
                         max_var = res["max_var"]
                         leri = res["leri"]
@@ -271,6 +292,8 @@ class SONAR:
                         max_corr = res["max_corr"]  # biggest correlation
                         max_corr_l = res["max_corr_l"]  # left corr at max
                         max_corr_r = res["max_corr_r"]  # right corr at max
+                        p_val_l = res["p_val_l"]    # left p_value
+                        p_val_r = res["p_val_r"]    # right p_value
                         max_val = res["max_val"]  # split point value
                         max_cat = res["max_cat"]  # split point category
                         is_cat_split = res["is_cat_split"]
@@ -305,14 +328,15 @@ class SONAR:
 
         spaces += '--' * cd
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} == {} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
-                                                                                                len(data_l), max_corr_l,
+            print("|-" + spaces + "  {}: {} == {} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var, max_val,
+                                                                                                len(data_l), self.symbol,
+                                                                                                 max_corr_l, p_val_l,
                                                                                                 relationship_var))
         else:
-            print("|-" + spaces + "  {}: {} <= {:.2f} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var,
+            print("|-" + spaces + "  {}: {} <= {:.2f} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var,
                                                                                                     max_val,
-                                                                                                    len(data_l),
-                                                                                                    max_corr_l,
+                                                                                                    len(data_l), self.symbol,
+                                                                                                    max_corr_l, p_val_l,
                                                                                                     relationship_var))
         # print("-> LEFT")
         # Left tree
@@ -323,14 +347,15 @@ class SONAR:
         self.u_id += 1
 
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} != {} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
-                                                                                                len(data_r), max_corr_r,
+            print("|-" + spaces + "  {}: {} != {} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var, max_val,
+                                                                                                len(data_r), self.symbol,
+                                                                                                 max_corr_r, p_val_r,
                                                                                                 relationship_var))
         else:
             print(
-                "|-" + spaces + "  {}: {} > {:.2f} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
-                                                                                                 len(data_r),
-                                                                                                 max_corr_r,
+                "|-" + spaces + "  {}: {} > {:.2f} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var, max_val,
+                                                                                                 len(data_r), self.symbol,
+                                                                                                 max_corr_r, p_val_r,
                                                                                                  relationship_var))
         # print("-> RIGHT")
         # Right tree
