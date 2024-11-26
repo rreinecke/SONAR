@@ -113,8 +113,8 @@ class SONAR:
                       "success":          False,
                       "max_corr_l":       0,
                       "max_corr_r":       0,
-                      "min_p_val_l":      1,
-                      "min_p_val_r":      1}
+                      "p_val_l":          1,
+                      "p_val_r":          1}
 
         # The left and right bucket of the current split
         n_lbucket = len(bucket_l)
@@ -124,6 +124,8 @@ class SONAR:
         if (n_lbucket >= self.min_points and n_lbucket / self.n_data > self.min_p and
                 n_rbucket >= self.min_points and n_rbucket / self.n_data > self.min_p):
             for rel in self.inputs:
+                if rel == self.target: # Prevents self-correlation of the target variable with itself
+                    continue
                 if rel in self.categoricals:
                     continue
                 corr_l = 0
@@ -136,21 +138,19 @@ class SONAR:
                 # samples (>500 observations).
 
                 # Left
-                corr_tmp, p_value = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
-                if p_value < self.alpha and corr_tmp != np.nan:
-                    corr_l  = np.abs(corr_tmp)
-                    p_val_l = p_value
+                corr_tmp, p_val_l = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
+                if p_val_l < self.alpha and corr_tmp != np.nan:
+                    corr_l = np.abs(corr_tmp)
 
                 # Right
-                corr_tmp, p_value = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
-                if p_value < self.alpha and corr_tmp != np.nan:
+                corr_tmp, p_val_r = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
+                if p_val_r < self.alpha and corr_tmp != np.nan:
                     corr_r  = np.abs(corr_tmp)
-                    p_val_r = p_value
 
                 if corr_r == 0 and corr_l == 0:
                     continue
 
-                if corr_r < base_corr and corr_l < base_corr:
+                if (corr_r <= base_corr) and (corr_l <= base_corr):
                     # split is not improving the correlation since last split
                     continue
 
