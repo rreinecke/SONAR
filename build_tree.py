@@ -70,12 +70,14 @@ class SONAR:
         for i in self.inputs:
             if not i == self.target:
                 if i not in self.categoricals:
-                    c, _ = stats.spearmanr(self.df[target], self.df[i], axis=0)
-                    if c > max_initial:
+                    c, p = stats.spearmanr(self.df[target], self.df[i], axis=0)
+                    if np.abs(c) > np.abs(max_initial):
                         max_initial = c
                         max_initial_var = i
-        print("Max initial correlation is {:.2f} to variable {}".format(max_initial, max_initial_var))
-        self.tree_dict = {'Corr': max_initial, 'Relationship_Var' : max_initial_var, 'DP': len(self.df[self.inputs[0]])}
+        print("Max initial correlation is {:.2f} to variable '{}' (p {})".format(max_initial, max_initial_var,
+                                                                                 p_sym(p)))
+        self.tree_dict = {'Corr': max_initial, 'Relationship_Var' : max_initial_var, 'DP': len(self.df[self.inputs[0]]),
+                          'Node': {'Split': False}}
 
         # Initialize cutting points
         for target in self.inputs:
@@ -328,12 +330,12 @@ class SONAR:
 
         spaces += '--' * cd
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} == {} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var, max_val,
+            print("|-" + spaces + "  {}: {} = {} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var, max_val,
                                                                                                 len(data_l), self.symbol,
                                                                                                  max_corr_l, p_val_l,
                                                                                                 relationship_var))
         else:
-            print("|-" + spaces + "  {}: {} <= {:.2f} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var,
+            print("|-" + spaces + "  {}: {} \u2264 {:.2f} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var,
                                                                                                     max_val,
                                                                                                     len(data_l), self.symbol,
                                                                                                     max_corr_l, p_val_l,
@@ -347,13 +349,13 @@ class SONAR:
         self.u_id += 1
 
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} != {} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var, max_val,
+            print("|-" + spaces + "  {}: {} \u2260 {} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var, max_val,
                                                                                                 len(data_r), self.symbol,
                                                                                                  max_corr_r, p_val_r,
                                                                                                 relationship_var))
         else:
             print(
-                "|-" + spaces + "  {}: {} > {:.2f} with {} points; {} = {:.2f} (p = {}); dri. = {}".format(self.u_id, max_var, max_val,
+                "|-" + spaces + "  {}: {} > {:.2f} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var, max_val,
                                                                                                  len(data_r), self.symbol,
                                                                                                  max_corr_r, p_val_r,
                                                                                                  relationship_var))
