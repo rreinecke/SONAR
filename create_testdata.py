@@ -22,7 +22,7 @@ def SEED():
 
 
 depth_faktor = 2/3
-type_list = ["linear", "square", "cub", "exp", "exp_n", "sqrt"]
+type_list = ["linear", "square", "cub", "exp", "exn", "sqrt"]
 
 
 def print_dataset(df):
@@ -70,7 +70,7 @@ def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1, t
         x2 = x2**3
     elif type == "exp":
         x2 = (10**x2) / 10
-    elif type == "exp_n":
+    elif type == "exn":
         x2 = (10**(-x2))
     elif type == "sqrt":
         x2 = np.sqrt(x2)
@@ -689,7 +689,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False, type = "linear"):
 #____________________________________________________________
 
 
-def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear", kat = False, kog = False, kon = False, seed = None):
+def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear", interf_var = False, seed = None):
     #Check the arguments.
     if (split1 not in ["O", "X", "Kn", "Kt", "Y"]) or (split2 not in ["O", "X", "Kn", "Kt", "Y"]) or (split3 not in ["X", "Kn", "Kt", "Y"]):
         print("Wrong input")
@@ -701,8 +701,8 @@ def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear
     if (pearson_r < -1) or (pearson_r > 1):
         print("Correlation value (Pearson r) must be between -1 and 1.")
         return
-    if type not in ["linear", "square", "cub", "exp", "exp_n", "sqrt"]:
-        print("Function type must be one of the following: 'linear', 'square', 'cub', 'exp', 'exp_n' or 'sqrt'.")
+    if type not in ["linear", "square", "cub", "exp", "exn", "sqrt"]:
+        print("Function type must be one of the following: 'linear', 'square', 'cub', 'exp', 'exn' or 'sqrt'.")
         return
 
     #Soll ein Seed erfolgen?
@@ -728,14 +728,17 @@ def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear
         return
 
     size = len(df)
+
     if "Kt" in [split1, split2, split3]:
         df["Kt"] = pd.Categorical(df["Kt"], categories=["A", "B", "C", "D", "E"])
-    if kat:
+
+    if interf_var:
+        # Kategorische Störvariable:
         SEED(); df["kat"] = np.random.choice(["v", "w", "x", "y", "z"], size)
         df["kat"]         = pd.Categorical(df["kat"], categories=["v", "w", "x", "y", "z"])
-    if kog:
+        # Kontinuierlich-gleichverteilte Störvariable:
         SEED(); df["kog"] = np.random.randint(1, 10001, size) / 10000
-    if kon:
+        # Kontinuierlich-normalverteilte Störvariable:
         SEED(); x_append = np.random.normal(0, 1, size)
         x_append         = (x_append / 6) + 0.5
         for i in range(len(x_append)):
