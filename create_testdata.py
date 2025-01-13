@@ -22,7 +22,7 @@ def SEED():
 
 
 depth_faktor = 2/3
-type_list = ["linear", "square", "cub", "exp", "exn", "sqrt"]
+type_list = ["lin", "squ", "cub", "exp", "srt", "sin", "ggk"]
 
 
 def print_dataset(df):
@@ -62,24 +62,47 @@ def create_dataset(pearson_r, size=1000, xlim_min = 0, xlim_max =1, depth = 1, t
             print("Requirements not satisfied")
             return
 
-    if type == "linear":
+    if type == "lin":
         x2 = x2
-    elif type == "square":
+        x1 = (x1 * (xlim_max - xlim_min) / size) + xlim_min
+    elif type == "squ":
         x2 = x2**2
+        x1 = (x1 * (xlim_max - xlim_min) / size) + xlim_min
     elif type == "cub":
         x2 = x2**3
+        x1 = (x1 * (xlim_max - xlim_min) / size) + xlim_min
     elif type == "exp":
         x2 = (10**x2) / 10
-    elif type == "exn":
-        x2 = (10**(-x2))
-    elif type == "sqrt":
+        x1 = (x1 * (xlim_max - xlim_min) / size) + xlim_min
+    elif type == "srt":
         x2 = np.sqrt(x2)
+        x1 = (x1 * (xlim_max - xlim_min) / size) + xlim_min
+    elif type == "sin":
+        x1 = (x1 * (xlim_max - xlim_min) / size) + xlim_min
+        x2_mean = m/2*np.sin(3 * np.pi * (x1)) + 0.5
+        x2 = (pearson_r * (x2_mean - np.mean(x2_mean)) / np.std(x2_mean)
+                + np.sqrt(1 - pearson_r ** 2) * x2_independent)
+        x2 = x2 * np.std(x2_mean) + np.mean(x2_mean)
+        for i in range(len(x2)):
+            if (x2[i] <= 0) or (x2[i] >1):
+                SEED(); x2[i] = np.random.randint(1, 10001) / 10000
+    elif type == "ggk":
+        x1 = (x1*(xlim_max - xlim_min)/size) + xlim_min
+        mu, sigma = 0.5, 0.1  # Standardwerte für ggk
+        x2_mean = m * np.exp(-((x1 - mu) ** 2) / (2 * sigma ** 2)) + (0.5 - 0.5 * m)
+        x2 = (pearson_r * (x2_mean - np.mean(x2_mean)) / np.std(x2_mean)
+              + np.sqrt(1 - pearson_r ** 2) * x2_independent)
+        x2 = x2 * np.std(x2_mean) + np.mean(x2_mean)
+        for i in range(len(x2)):
+            if (x2[i] <= 0) or (x2[i] > 1):
+                SEED(); x2[i] = np.random.randint(1, 10001) / 10000
+
     else:
         print(f"Type '{type}' does not exist.")
         exit()
 
     # Erzeugt ein Pandas DF
-    df = pd.DataFrame({'X': (x1*(xlim_max-xlim_min)/size) + xlim_min, 'Y':x2})
+    df = pd.DataFrame({'X': x1, 'Y':x2})
     return df
 
 
@@ -97,7 +120,7 @@ def create_X(pearson_r, printit = False, type = "linear"):
     if printit: print_dataset(df)
     return df
 
-#create_X(1, printit = True, type = "linear")
+#create_X(.99, printit = True, type = "ggk")
 
 def create_Kn(pearson_r, printit = False, type = "linear"):
     df = create_dataset(pearson_r=pearson_r, type = type)
@@ -113,7 +136,7 @@ def create_Kn(pearson_r, printit = False, type = "linear"):
     if printit: print_dataset(df)
     return df
 
-#df = create_Kn(0.99, printit = True, type = "linear")
+#df = create_Kn(0.99999, printit = True, type = "ggk")
 
 def create_Kt(pearson_r, printit = False, type = "linear"):
     df = create_dataset(pearson_r=pearson_r, type = type)
@@ -141,7 +164,7 @@ def create_Y(pearson_r, printit = False, type = "linear"):
     if printit: print_dataset(df)
     return df
 
-#df = create_Y(0.99, printit = True, type = "linear")
+#df = create_Y(1, printit = True, type = "lin")
 
 
 #____________________________________________________________
@@ -219,7 +242,7 @@ def create_var1_Kn(pearson_r, var1, printit = False, type = "linear"):
     return df
 
 #create_var1_Kn(1,"X", printit = True, type = "linear")
-#create_var1_Kn(1,"Kt", printit = True, type = "linear")
+#create_var1_Kn(1,"Kt", printit = True, type = "ggk")
 #create_var1_Kn(1,"Y", printit = True, type = "linear")
 
 def create_var1_Kt(pearson_r, var1, printit = False, type = "linear"):
@@ -255,7 +278,7 @@ def create_var1_Kt(pearson_r, var1, printit = False, type = "linear"):
     return df
 
 #create_var1_Kt(.1,"X",True, type = "linear")
-#create_var1_Kt(1,"Kn",True, type = "linear")
+#create_var1_Kt(.5,"Kn",True, type = "sin")
 #create_var1_Kt(1,"Y",True, type = "linear")
 
 def create_var1_Y(pearson_r, var1, printit = False, type = "linear"):
@@ -682,7 +705,7 @@ def create_var1_var2_Y(pearson_r, var1, var2, printit = False, type = "linear"):
 #create_var1_var2_Y(1, "X",  "Kn", printit = True, type = "linear")
 #create_var1_var2_Y(1, "Kt", "Kn", printit = True, type = "linear")
 #create_var1_var2_Y(1, "X",  "Kt", printit = True, type = "linear")
-#create_var1_var2_Y(1, "Kn", "Kt", printit = True, type = "linear")
+#create_var1_var2_Y(1, "Kn", "Kt", printit = True, type = "sin")
 
 
 #____________________________________________________________
@@ -701,8 +724,8 @@ def test_data(split1, split2, split3, pearson_r, printit = False, type = "linear
     if (pearson_r < -1) or (pearson_r > 1):
         print("Correlation value (Pearson r) must be between -1 and 1.")
         return
-    if type not in ["linear", "square", "cub", "exp", "exn", "sqrt"]:
-        print("Function type must be one of the following: 'linear', 'square', 'cub', 'exp', 'exn' or 'sqrt'.")
+    if type not in ["lin", "squ", "cub", "exp", "srt", "sin", "ggk"]:
+        print("Function type must be one of the following: 'lin', 'squ', 'cub', 'exp', 'srt', 'sin' or 'ggk'.")
         return
 
     #Soll ein Seed erfolgen?
