@@ -100,7 +100,7 @@ def compare_nodes(true_node, test_node, sampi_score_tracker, type="rel"):
             split_value_1 = true_node['Node'].get('Split_Value', 0)
             split_value_2 = test_node['Node'].get('Split_Value', 0)
             if isinstance(split_value_1, str) and split_value_1 != split_value_2:
-                sampi_score_tracker['sampi_score'] += 1
+                sampi_score_tracker['sampi_score'] += 0.5
             elif isinstance(split_value_1, (int, float)) and isinstance(split_value_2, (int, float)):
                 sampi_score_tracker['sampi_score'] += min(abs(split_value_1 - split_value_2) * 2, 1)
             elif isinstance(split_value_1, (int, float)) and isinstance(split_value_2, str):
