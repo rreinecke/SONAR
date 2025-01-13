@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+from sklearn.feature_selection import mutual_info_regression as mi
 import os
 
 # SONAR helper functions.
@@ -19,6 +20,7 @@ def p_sym(p):  #Formatiert die p-Werte (Fehler 1. Art) für print-Befehle.
     elif (p < 0.05) and (p >= 0.01):  p_val = "< 0.05¹".format(p)
     elif (p < 0.01) and (p > 0.001):  p_val = "< 0.01²".format(p)
     elif (p < 0.001) and (p != -999): p_val = "< 0.001³".format(p)
+    elif (p == -999):                 p_val = "not detected".format(p)
     return p_val
 
 
@@ -55,8 +57,15 @@ class SONAR:
         self.actual_bins    = None  # Duplicated bins can lead to fewer bins than requested
         self.n_actual_bins  = 0
         self.tree_dict      = None      #Output-Tree
+        self.type_rel       = type_rel
         if type_rel == "spearman":
             self.symbol     = "\u03f1"
+        if type_rel == "pearson":
+            self.symbol     = "r"
+        if type_rel == "kendall":
+            self.symbol     = "\u03C4"
+        if type_rel == "mutual info":
+            self.symbol     = "I"
 
     def prepare(self, target):
         """
@@ -70,11 +79,18 @@ class SONAR:
         for i in self.inputs:
             if not i == self.target:
                 if i not in self.categoricals:
-                    c, p = stats.spearmanr(self.df[target], self.df[i], axis=0)
+                    if self.type_rel == "spearman":
+                        c, p = stats.spearmanr(self.df[target], self.df[i], axis=0)
+                    elif self.type_rel == "pearson":
+                        c, p = stats.pearsonr(self.df[target], self.df[i], axis=0)
+                    elif self.type_rel == "kendall":
+                        c, p = stats.kendalltau(self.df[target], self.df[i])
+                    elif self.type_rel == "mutual info":
+                        c, p = mi(self.df[["X"]], self.df["Y"], random_state=42)[0], -999
                     if np.abs(c) > np.abs(max_initial):
                         max_initial = c
                         max_initial_var = i
-        print("Max initial correlation is {:.2f} to variable '{}' (p {})".format(max_initial, max_initial_var,
+        print("Max initial relationship ({}'s {}) is {:.2f} to variable '{}' (p {})".format(self.type_rel, self.symbol, max_initial, max_initial_var,
                                                                                  p_sym(p)))
         self.tree_dict = {'Corr': max_initial, 'Relationship_Var' : max_initial_var, 'DP': len(self.df[self.inputs[0]]),
                           'Node': {'Split': False}}
@@ -140,12 +156,27 @@ class SONAR:
                 # samples (>500 observations).
 
                 # Left
-                corr_tmp, p_val_l = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
+                if self.type_rel == "spearman":
+                    corr_tmp, p_val_l = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
+                elif self.type_rel == "pearson":
+                    corr_tmp, p_val_l = stats.pearsonr(bucket_l[rel], bucket_l[self.target], axis=0)
+                elif self.type_rel == "kendall":
+                    corr_tmp, p_val_l = stats.kendalltau(bucket_l[rel], bucket_l[self.target])
+                elif self.type_rel == "mutual info":
+                    corr_tmp, p_val_l = mi(bucket_l[[rel]], bucket_l[self.target], n_neighbors = 2, random_state=42)[0], -999
+
                 if p_val_l < self.alpha and corr_tmp != np.nan:
                     corr_l = np.abs(corr_tmp)
 
                 # Right
-                corr_tmp, p_val_r = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
+                if self.type_rel == "spearman":
+                    corr_tmp, p_val_r = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
+                elif self.type_rel == "pearson":
+                    corr_tmp, p_val_r = stats.pearsonr(bucket_r[rel], bucket_r[self.target], axis=0)
+                elif self.type_rel == "kendall":
+                    corr_tmp, p_val_r = stats.kendalltau(bucket_r[rel], bucket_r[self.target])
+                elif self.type_rel == "mutual info":
+                    corr_tmp, p_val_r = mi(bucket_r[[rel]], bucket_r[self.target], n_neighbors = 2, random_state=42)[0], -999
                 if p_val_r < self.alpha and corr_tmp != np.nan:
                     corr_r  = np.abs(corr_tmp)
 
