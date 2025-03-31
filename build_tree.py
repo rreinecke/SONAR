@@ -15,7 +15,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def p_sym(p):  #Formatiert die p-Werte (Fehler 1. Art) für print-Befehle.
+def p_sym(p):  # Formats the p-values (error 1st type) for print commands.
     if p >= 0.05:                     p_val = "= {:.3f}".format(p)
     elif (p < 0.05) and (p >= 0.01):  p_val = "< 0.05¹".format(p)
     elif (p < 0.01) and (p > 0.001):  p_val = "< 0.01²".format(p)
@@ -58,14 +58,14 @@ class SONAR:
         self.n_actual_bins  = 0
         self.tree_dict      = None      #Output-Tree
         self.type_rel       = type_rel
-        if type_rel == "spearman":
+        if type_rel == "spearman":          # Adjusted symbols, depending on the statistical indicator used:
             self.symbol     = "\u03f1"
         if type_rel == "pearson":
             self.symbol     = "r"
         if type_rel == "kendall":
             self.symbol     = "\u03C4"
         if type_rel == "mutual info":
-            self.symbol     = "I"
+            self.symbol     = "I\u2099"
 
     def prepare(self, target):
         """
@@ -121,7 +121,9 @@ class SONAR:
         """
         This method implements the split decision.
         """
-        split_info = {"max_corr":        0,  # All the information recorded for a specific split
+
+        # All the information recorded for a specific split
+        split_info = {"max_corr":        0,
                       "max_val":         0,
                       "max_cat":         "",
                       "is_cat_split":    True,
