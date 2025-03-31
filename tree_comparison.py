@@ -1,6 +1,5 @@
-# Below, two exemplary trees are shown ...
-# ... before explaining how the node-by-node comparison
-# ... between two general decision trees of this syntax is performed:
+# Below, two exemplary trees are shown,
+# ... before explaining how the node-by-node comparison between two general decision trees of this syntax is performed:
 
 
 
@@ -99,7 +98,7 @@ def compare_nodes(true_node, test_node, sampi_score_tracker, type="rel"):
     sampi_score_tracker['n_nodes'] += 1
 
     # Check whether both nodes are splitting:
-    if not (true_node['Node']['Split'] and test_node['Node']['Split']): # Falls nur einer der beiden Bäume splittet.
+    if not (true_node['Node']['Split'] and test_node['Node']['Split']): # If only one of the two trees splits.
         sampi_score_tracker['sampi_score'] += 1
     else:# If there is a split in both trees at this node, the split variables are compared first:
         if true_node['Node']['Split_Var'] != test_node['Node']['Split_Var']:

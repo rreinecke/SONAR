@@ -339,6 +339,8 @@ def create_var1_Y(r_S, var1, printit = False, type ="lin"):
     # Create the highly functional relationship after two split (df) ...
     # ... and the weakened relationship after one split (df_append) and combine both.
     # The second split is implemented along the threshold value Y ≤ 0.1:
+    # To simplify the construction, the case with a last split in Y can be traced back ...
+    # ... to the case with the last split in X by interchanging the indices
     df = create_dataset(r_S=r_S, size = 1000, xlim_min = 0, xlim_max = 0.1, depth = 2, type = type)
     X, Y = df["Y"], df["X"]     # Interchange X- and Y-Coordinates
     df["X"], df["Y"] = X, Y
@@ -386,7 +388,7 @@ def create_var1_Y(r_S, var1, printit = False, type ="lin"):
 # With the same reasoning as for data sets with two splits (see subsection 3.3.1), ...
 # ... the data sets for three splits are also created from back to front, ...
 # ... whereby the form of the regression curve of the weakest relationship (after 1 split) ...
-# ... is already taken into account for the construction of the first, highest functional relationship (after 3 splits).
+# ... is already taken into account for the construction of the (first) highest functional relationship (after 3 splits).
 
 
 def create_var1_var2_X(r_S, var1, var2, printit = False, type ="lin"):
@@ -703,7 +705,7 @@ def create_var1_var2_Kt(r_S, var1, var2, printit = False, type ="lin"):
 
         # Data set for the second split:
         # Second Split: Y, Third Split: Kt
-        # The second split is set at the threshold value (> ≤ 0.5)
+        # The second split is set at the threshold value (Y ≤ 0.5)
         df_append       = create_dataset(r_S=r_S * (depth_faktor ** 2), size=10000, depth=1,
                                          xlim_min=0.5, xlim_max = 1, type = type)
         SEED(); df_append['Kt'] = np.random.choice(["A", "B", "C", "D", "E"], 10000)
@@ -912,5 +914,5 @@ def test_data(split1, split2, split3, r_S, printit = False, type ="lin", interf_
     return df
 
 #Testaufruf
-a = test_data("Kt","Kn","X", 1, type = "lin", printit = True, interf_var = True, seed = 1)
+#a = test_data("Kt","Kn","X", 1, type = "lin", printit = True, interf_var = True, seed = 1)
 #b = test_data("Kt","Kn","X", 1, type = "lin", printit = False, interf_var = True, seed = 2)
