@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+from sklearn.feature_selection import mutual_info_regression as mi
 import os
 
 # SONAR helper functions.
@@ -14,6 +15,16 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+def p_sym(p):  # Formats the p-values (error 1st type) for print commands.
+    if p >= 0.05:                     p_val = "= {:.3f}".format(p)
+    elif (p < 0.05) and (p >= 0.01):  p_val = "< 0.05¹".format(p)
+    elif (p < 0.01) and (p > 0.001):  p_val = "< 0.01²".format(p)
+    elif (p < 0.001) and (p != -999): p_val = "< 0.001³".format(p)
+    elif (p == -999):                 p_val = "not detected".format(p)
+    return p_val
+
+
+
 class SONAR:
     """
 
@@ -25,7 +36,7 @@ class SONAR:
     alpha = 0.001  # Minimum p value of the correlation test to allow slit.
     bins = 100  # Number of bins to separate data into.
 
-    def __init__(self, input_data, input_vars, categoricals=None, max_depth=None):
+    def __init__(self, input_data, input_vars, categoricals=None, max_depth=None, type_rel = "spearman"):
         # Inputs supplied by the user
         if categoricals is None:
             categoricals = []
@@ -39,12 +50,22 @@ class SONAR:
         self.max_depth = max_depth  # Trees are very small but one can also set a max depth, if none = disabled
 
         # Global variables
-        self.target = ""  # target variable
-        self.splits = []  # split decisions across the recursive calls
-        self.u_id = 0  # ID of the root node
-        self.n_data = len(self.df)  # total number of points
-        self.actual_bins = None  # Duplicated bins can lead to fewer bins than requested
-        self.n_actual_bins = 0
+        self.target         = ""  # target variable
+        self.splits         = []  # split decisions across the recursive calls
+        self.u_id           = 0  # ID of the root node
+        self.n_data         = len(self.df)  # total number of points
+        self.actual_bins    = None  # Duplicated bins can lead to fewer bins than requested
+        self.n_actual_bins  = 0
+        self.tree_dict      = None      #Output-Tree
+        self.type_rel       = type_rel
+        if type_rel == "spearman":          # Adjusted symbols, depending on the statistical indicator used:
+            self.symbol     = "\u03f1"
+        if type_rel == "pearson":
+            self.symbol     = "r"
+        if type_rel == "kendall":
+            self.symbol     = "\u03C4"
+        if type_rel == "mutual info":
+            self.symbol     = "I\u2099"
 
     def prepare(self, target):
         """
@@ -58,11 +79,21 @@ class SONAR:
         for i in self.inputs:
             if not i == self.target:
                 if i not in self.categoricals:
-                    c, _ = stats.spearmanr(self.df[target], self.df[i], axis=0)
-                    if c > max_initial:
+                    if self.type_rel == "spearman":
+                        c, p = stats.spearmanr(self.df[target], self.df[i], axis=0)
+                    elif self.type_rel == "pearson":
+                        c, p = stats.pearsonr(self.df[target], self.df[i], axis=0)
+                    elif self.type_rel == "kendall":
+                        c, p = stats.kendalltau(self.df[target], self.df[i])
+                    elif self.type_rel == "mutual info":
+                        c, p = mi(self.df[["X"]], self.df["Y"], random_state=42)[0], -999
+                    if np.abs(c) > np.abs(max_initial):
                         max_initial = c
                         max_initial_var = i
-        print("Max initial correlation is {:.2f} to variable {}".format(max_initial, max_initial_var))
+        print("Max initial relationship ({}'s {}) is {:.2f} to variable '{}' (p {})".format(self.type_rel, self.symbol, max_initial, max_initial_var,
+                                                                                 p_sym(p)))
+        self.tree_dict = {'Corr': max_initial, 'Relationship_Var' : max_initial_var, 'DP': len(self.df[self.inputs[0]]),
+                          'Node': {'Split': False}}
 
         # Initialize cutting points
         for target in self.inputs:
@@ -84,22 +115,26 @@ class SONAR:
         """
         Wrapper call to build tree.
         """
-        self.get_tree(self.df, self.max_depth, self.inputs, self.n_actual_bins)
+        return self.get_tree(self.df, self.max_depth, self.inputs, self.n_actual_bins)
 
     def check_split(self, bucket_l, bucket_r, base_corr, cat, lvar, max_corr, categorical, cat_ranges=None):
         """
         This method implements the split decision.
         """
-        split_info = {"max_corr": 0,  # All the information recorded for a specific split
-                      "max_val": 0,
-                      "max_cat": "",
-                      "is_cat_split": True,
-                      "max_var": "",
-                      "leri": "left",
+
+        # All the information recorded for a specific split
+        split_info = {"max_corr":        0,
+                      "max_val":         0,
+                      "max_cat":         "",
+                      "is_cat_split":    True,
+                      "max_var":         "",
+                      "leri":            "left",
                       "relationship_var": "",
-                      "success": False,
-                      "max_corr_l": 0,
-                      "max_corr_r": 0}
+                      "success":          False,
+                      "max_corr_l":       0,
+                      "max_corr_r":       0,
+                      "p_val_l":          1,
+                      "p_val_r":          1}
 
         # The left and right bucket of the current split
         n_lbucket = len(bucket_l)
@@ -109,6 +144,8 @@ class SONAR:
         if (n_lbucket >= self.min_points and n_lbucket / self.n_data > self.min_p and
                 n_rbucket >= self.min_points and n_rbucket / self.n_data > self.min_p):
             for rel in self.inputs:
+                if rel == self.target: # Prevents self-correlation of the target variable with itself
+                    continue
                 if rel in self.categoricals:
                     continue
                 corr_l = 0
@@ -121,19 +158,34 @@ class SONAR:
                 # samples (>500 observations).
 
                 # Left
-                corr_tmp, p_value = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
-                if p_value < self.alpha and corr_tmp != np.nan:
+                if self.type_rel == "spearman":
+                    corr_tmp, p_val_l = stats.spearmanr(bucket_l[rel], bucket_l[self.target], axis=0)
+                elif self.type_rel == "pearson":
+                    corr_tmp, p_val_l = stats.pearsonr(bucket_l[rel], bucket_l[self.target], axis=0)
+                elif self.type_rel == "kendall":
+                    corr_tmp, p_val_l = stats.kendalltau(bucket_l[rel], bucket_l[self.target])
+                elif self.type_rel == "mutual info":
+                    corr_tmp, p_val_l = mi(bucket_l[[rel]], bucket_l[self.target], n_neighbors = 2, random_state=42)[0], -999
+
+                if p_val_l < self.alpha and corr_tmp != np.nan:
                     corr_l = np.abs(corr_tmp)
 
                 # Right
-                corr_tmp, p_value = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
-                if p_value < self.alpha and corr_tmp != np.nan:
-                    corr_r = np.abs(corr_tmp)
+                if self.type_rel == "spearman":
+                    corr_tmp, p_val_r = stats.spearmanr(bucket_r[rel], bucket_r[self.target], axis=0)
+                elif self.type_rel == "pearson":
+                    corr_tmp, p_val_r = stats.pearsonr(bucket_r[rel], bucket_r[self.target], axis=0)
+                elif self.type_rel == "kendall":
+                    corr_tmp, p_val_r = stats.kendalltau(bucket_r[rel], bucket_r[self.target])
+                elif self.type_rel == "mutual info":
+                    corr_tmp, p_val_r = mi(bucket_r[[rel]], bucket_r[self.target], n_neighbors = 2, random_state=42)[0], -999
+                if p_val_r < self.alpha and corr_tmp != np.nan:
+                    corr_r  = np.abs(corr_tmp)
 
                 if corr_r == 0 and corr_l == 0:
                     continue
 
-                if corr_r < base_corr and corr_l < base_corr:
+                if (corr_r <= base_corr) and (corr_l <= base_corr):
                     # split is not improving the correlation since last split
                     continue
 
@@ -158,17 +210,20 @@ class SONAR:
                         split_info["max_corr"] = np.abs(corr_l)
                     else:
                         split_info["max_corr"] = np.abs(corr_r)
+
                     split_info["max_cat"] = cat
                     split_info["is_cat_split"] = categorical
                     split_info["max_var"] = lvar
                     split_info["leri"] = split_found
                     split_info["relationship_var"] = rel
                     split_info["success"] = True
-                    split_info["max_corr_l"] = corr_l
-                    split_info["max_corr_r"] = corr_r
+                    split_info["max_corr_l"]  = corr_l
+                    split_info["max_corr_r"]  = corr_r
+                    split_info["p_val_l"] = p_sym(p_val_l)
+                    split_info["p_val_r"] = p_sym(p_val_r)
         return split_info
 
-    def get_tree(self, data, max_depth, l_var, n_bins, cd=0, id=None, base_corr=0):
+    def get_tree(self, data, max_depth, l_var, n_bins, cd=0, id=None, base_corr=0, tree_dict = None):
         """
         l_vars: list of variables to test
         n_bins: number of bins
@@ -177,12 +232,15 @@ class SONAR:
 
         # print("Tree at depth: {}".format(cd))
         if cd == max_depth:
-            return
+            return self.tree_dict
         spaces = ""
         if id is None:
             # plot_root(data)
             id = 0
             print("Root node")
+
+        if not tree_dict:
+            tree_dict = self.tree_dict
 
         max_corr = 0  # biggest correlation
         max_corr_l = 0  # left corr at max
@@ -210,11 +268,13 @@ class SONAR:
                         continue
                     else:
                         success = True
-                        max_corr = res["max_corr"]  # biggest correlation
+                        max_corr = res["max_corr"]      # biggest correlation
                         max_corr_l = res["max_corr_l"]  # left corr at max
                         max_corr_r = res["max_corr_r"]  # right corr at max
-                        max_val = res["max_val"]  # split point value
-                        max_cat = res["max_cat"]  # split point category
+                        p_val_l = res["p_val_l"]        # left p_value
+                        p_val_r = res["p_val_r"]        # right p_value
+                        max_val = res["max_val"]        # split point value
+                        max_cat = res["max_cat"]        # split point category
                         is_cat_split = res["is_cat_split"]
                         max_var = res["max_var"]
                         leri = res["leri"]
@@ -237,11 +297,13 @@ class SONAR:
                         continue
                     else:
                         success = True
-                        max_corr = res["max_corr"]  # biggest correlation
+                        max_corr = res["max_corr"]      # biggest correlation
                         max_corr_l = res["max_corr_l"]  # left corr at max
                         max_corr_r = res["max_corr_r"]  # right corr at max
-                        max_val = res["max_val"]  # split point value
-                        max_cat = res["max_cat"]  # split point category
+                        p_val_l = res["p_val_l"]        # left p_value
+                        p_val_r = res["p_val_r"]        # right p_value
+                        max_val = res["max_val"]        # split point value
+                        max_cat = res["max_cat"]        # split point category
                         is_cat_split = res["is_cat_split"]
                         max_var = res["max_var"]
                         leri = res["leri"]
@@ -265,6 +327,8 @@ class SONAR:
                         max_corr = res["max_corr"]  # biggest correlation
                         max_corr_l = res["max_corr_l"]  # left corr at max
                         max_corr_r = res["max_corr_r"]  # right corr at max
+                        p_val_l = res["p_val_l"]    # left p_value
+                        p_val_r = res["p_val_r"]    # right p_value
                         max_val = res["max_val"]  # split point value
                         max_cat = res["max_cat"]  # split point category
                         is_cat_split = res["is_cat_split"]
@@ -274,7 +338,7 @@ class SONAR:
 
         # have we found a split?
         if not success:
-            return
+            return self.tree_dict
 
         # We have found a better split
         self.splits.append(
@@ -285,43 +349,54 @@ class SONAR:
         if is_cat_split:
             data_l = data.loc[data[max_var] == max_cat].copy()
             data_r = data.loc[data[max_var] != max_cat].copy()
+            split_val = max_cat
         else:
             data_l = data.loc[data[max_var + "_code"] <= max_cat].copy()
             data_r = data.loc[data[max_var + "_code"] > max_cat].copy()
+            split_val = max_val
+
+        tree_dict['Node'] = {'Split': True, 'Split_Var': max_var, 'Split_Value': split_val}
+        tree_dict['left'] = {'Corr': max_corr_l, 'Relationship_Var': relationship_var, 'DP': len(data_l), 'Node': {'Split': False}}
+        tree_dict['right']= {'Corr': max_corr_r, 'Relationship_Var': relationship_var, 'DP': len(data_r), 'Node': {'Split': False}}
 
         self.u_id += 1
 
         spaces += '--' * cd
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} == {} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
-                                                                                                len(data_l), max_corr_l,
+            print("|-" + spaces + "  {}: {} = {} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var, max_val,
+                                                                                                len(data_l), self.symbol,
+                                                                                                 max_corr_l, p_val_l,
                                                                                                 relationship_var))
         else:
-            print("|-" + spaces + "  {}: {} <= {:.2f} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var,
+            print("|-" + spaces + "  {}: {} \u2264 {:.2f} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var,
                                                                                                     max_val,
-                                                                                                    len(data_l),
-                                                                                                    max_corr_l,
+                                                                                                    len(data_l), self.symbol,
+                                                                                                    max_corr_l, p_val_l,
                                                                                                     relationship_var))
         # print("-> LEFT")
         # Left tree
         if len(data_l) > 0:
             write_data(data_l, cd + 1, "left", self.u_id, id, relationship_var, self.target)
-            self.get_tree(data_l, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr)
+            self.get_tree(data_l, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr, tree_dict['left'])
 
         self.u_id += 1
 
         if is_cat_split:
-            print("|-" + spaces + "  {}: {} != {} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
-                                                                                                len(data_r), max_corr_r,
+            print("|-" + spaces + "  {}: {} \u2260 {} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var, max_val,
+                                                                                                len(data_r), self.symbol,
+                                                                                                 max_corr_r, p_val_r,
                                                                                                 relationship_var))
         else:
             print(
-                "|-" + spaces + "  {}: {} > {:.2f} with {} points; p = {:.2f}; dri. = {}".format(self.u_id, max_var, max_val,
-                                                                                                 len(data_r),
-                                                                                                 max_corr_r,
+                "|-" + spaces + "  {}: {} > {:.2f} with {} points; {} = {:.2f} (p {}); dri. = {}".format(self.u_id, max_var, max_val,
+                                                                                                 len(data_r), self.symbol,
+                                                                                                 max_corr_r, p_val_r,
                                                                                                  relationship_var))
         # print("-> RIGHT")
         # Right tree
         if len(data_r) > 0:
             write_data(data_r, cd + 1, "right", self.u_id, id, relationship_var, self.target)
-            self.get_tree(data_r, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr)
+            self.get_tree(data_r, max_depth, l_var, n_bins, cd + 1, self.u_id, max_corr, tree_dict['right'])
+
+        if cd == 0:
+            return self.tree_dict
